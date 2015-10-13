@@ -10,7 +10,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URI;
-import java.nio.charset.CharacterCodingException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.cert.Certificate;
@@ -23,22 +22,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.cassandra.cli.CliMain;
-import org.apache.cassandra.cli.CliOptions;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.emc.storageos.coordinator.client.model.Constants;
 import com.emc.storageos.coordinator.client.model.SoftwareVersion;
+import com.emc.storageos.coordinator.client.model.SiteInfo;
 import com.emc.storageos.coordinator.client.service.CoordinatorClient;
 import com.emc.storageos.coordinator.client.service.impl.CoordinatorClientImpl;
 import com.emc.storageos.coordinator.common.Configuration;
@@ -48,7 +44,6 @@ import com.emc.storageos.coordinator.exceptions.CoordinatorException;
 import com.emc.storageos.db.client.URIUtil;
 import com.emc.storageos.db.client.constraint.ContainmentConstraint;
 import com.emc.storageos.db.client.constraint.URIQueryResultList;
-import com.emc.storageos.db.client.impl.DbClientContext;
 import com.emc.storageos.db.client.impl.DbClientImpl;
 import com.emc.storageos.db.client.model.CustomConfig;
 import com.emc.storageos.db.client.model.DataObject;
@@ -60,9 +55,7 @@ import com.emc.storageos.db.client.model.Token;
 import com.emc.storageos.db.client.model.VirtualDataCenter;
 import com.emc.storageos.db.client.model.VirtualDataCenter.ConnectionStatus;
 import com.emc.storageos.db.client.model.VirtualDataCenter.GeoReplicationStatus;
-import com.emc.storageos.db.common.DbConfigConstants;
 import com.emc.storageos.db.common.VdcUtil;
-import com.emc.storageos.db.server.impl.SchemaUtil;
 import com.emc.storageos.geo.vdccontroller.impl.InternalDbClient;
 import com.emc.storageos.geomodel.VdcCertListParam;
 import com.emc.storageos.geomodel.VdcCertParam;
@@ -83,7 +76,6 @@ import com.emc.storageos.security.keystore.impl.KeystoreEngine;
 import com.emc.storageos.svcs.errorhandling.resources.APIException;
 import com.emc.storageos.systemservices.impl.client.SysClientFactory;
 import com.emc.vipr.model.sys.ClusterInfo;
-import com.netflix.astyanax.connectionpool.exceptions.ConnectionException;
 
 public class VdcConfigHelper {
     private static final Logger log = LoggerFactory.getLogger(VdcConfigHelper.class);
@@ -233,25 +225,16 @@ public class VdcConfigHelper {
             updateDbSvcConfig(Constants.GEODBSVC_NAME, Constants.REINIT_DB, String.valueOf(true));
         }
 
-        // trigger syssvc to update the vdc config to all the nodes in the current vdc
-        // add a small deley so that sync process can finish
-        wakeupExecutor.schedule(new Runnable() {
-            public void run() {
-                for (Service syssvc : coordinator.locateAllServices(
-                        ((CoordinatorClientImpl) coordinator).getSysSvcName(),
-                        ((CoordinatorClientImpl) coordinator).getSysSvcVersion(), null, null)) {
-                    try {
-                        log.info("waking up node: {}", syssvc.getNodeId());
-                        SysClientFactory.SysClient sysClient = SysClientFactory.getSysClient(
-                                syssvc.getEndpoint());
-                        sysClient.setCoordinatorClient(coordinator);
-                        sysClient.post(SysClientFactory.URI_WAKEUP_PROPERTY_MANAGER, null, null);
-                    } catch (Exception e) {
-                        log.error("Error waking up node: {} Cause:", syssvc.getNodeId(), e);
-                    }
-                }
-            }
-        }, WAKEUP_DELAY, TimeUnit.SECONDS);
+        // Update the vdc version for the local vdc to wakeup VdcSiteManager
+        SiteInfo siteInfo;
+        String siteId = coordinator.getSiteId();
+        SiteInfo currentSiteInfo = coordinator.getTargetInfo(siteId, SiteInfo.class);
+        if (currentSiteInfo != null) {
+            siteInfo = new SiteInfo(System.currentTimeMillis(), SiteInfo.NONE, currentSiteInfo.getTargetDataRevision());
+        } else {
+            siteInfo = new SiteInfo(System.currentTimeMillis(), SiteInfo.NONE);
+        }
+        coordinator.setTargetInfo(siteId, siteInfo);
     }
 
     public void syncVdcConfigPostSteps(VdcPostCheckParam checkParam) {
