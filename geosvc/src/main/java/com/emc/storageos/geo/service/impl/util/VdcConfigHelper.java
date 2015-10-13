@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014 EMC Corporation
+ * Copyright (c) 2008-2015 EMC Corporation
  * All Rights Reserved
  */
 
@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -74,7 +73,6 @@ import com.emc.storageos.security.keystore.impl.KeyCertificatePairGenerator;
 import com.emc.storageos.security.keystore.impl.KeyStoreUtil;
 import com.emc.storageos.security.keystore.impl.KeystoreEngine;
 import com.emc.storageos.svcs.errorhandling.resources.APIException;
-import com.emc.storageos.systemservices.impl.client.SysClientFactory;
 import com.emc.vipr.model.sys.ClusterInfo;
 
 public class VdcConfigHelper {
@@ -97,8 +95,7 @@ public class VdcConfigHelper {
     private static final int NODE_REACHABLE_PORT = 4443;
 
     // CTRL-2859,3393 Add reboot delay to allow sync process to succeed
-    private ScheduledExecutorService wakeupExecutor = Executors.newScheduledThreadPool(1);
-    private static final int WAKEUP_DELAY = 15; // seconds
+    private static final int WAKEUP_DELAY_MILLIS = 15 * 1000; // 15 seconds
 
     @Autowired
     private CoordinatorClient coordinatorClient;
@@ -226,6 +223,12 @@ public class VdcConfigHelper {
         }
 
         // Update the vdc version for the local vdc to wakeup VdcSiteManager
+        try {
+            Thread.sleep(WAKEUP_DELAY_MILLIS);
+        } catch (InterruptedException e) {
+            log.warn("sleep interrupted");
+        }
+
         SiteInfo siteInfo;
         String siteId = coordinator.getSiteId();
         SiteInfo currentSiteInfo = coordinator.getTargetInfo(siteId, SiteInfo.class);
