@@ -74,10 +74,10 @@ fw_custom_iptables() {
     VDC_NODES_IPV6="${vdc_nodes_ipaddr6}"
 
     # TCP ingres ports for inter-VDC communication:
-    #   7101 - 
+    #   7100 -
     #
     # NOTE: The commands below must contain only one port. If multiple ports are needed, add the multiport option
-    INTERVDC_PORT="7101"
+    INTERVDC_PORT="7100"
 
     for sourceNode in ${VDC_NODES_IPV4} ; do
         iptables  -I input_ext -p tcp -i ${NIC_NAME} -s ${sourceNode} --dport ${INTERVDC_PORT} -j ACCEPT
