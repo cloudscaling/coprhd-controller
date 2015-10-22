@@ -221,7 +221,7 @@ public class FileUtils {
         }
         Arrays.sort(files, new Comparator<File>() {
             public int compare(File o1, File o2) {
-                return new Long(o2.lastModified()).compareTo(o1.lastModified()); //latest 1st
+                return new Long(o1.lastModified()).compareTo(o2.lastModified()); //latest 1st
             }
         });
         return new Date(files[0].lastModified());
