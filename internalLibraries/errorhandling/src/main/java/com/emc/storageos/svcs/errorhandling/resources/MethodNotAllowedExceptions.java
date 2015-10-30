@@ -66,4 +66,7 @@ public interface MethodNotAllowedExceptions {
 
     @DeclareServiceCode(ServiceCode.API_METHOD_NOT_SUPPORTED)
     public MethodNotAllowedException notSupportedForOpenstack();
+
+    @DeclareServiceCode(ServiceCode.API_METHOD_NOT_SUPPORTED)
+    public MethodNotAllowedException notSupportedForCeph();
 }

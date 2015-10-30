@@ -29,6 +29,7 @@ public class StorageSystemTypes {
     public static final String XTREMIO = "xtremio";
     public static final String DATA_DOMAIN = "datadomain";
     public static final String ECS = "ecs";
+    public static final String CEPH = "ceph";
     public static final String STORAGE_PROVIDER_VMAX = "STORAGE_PROVIDER.vmax";
     public static final String STORAGE_PROVIDER_HITACHI = "STORAGE_PROVIDER.hds";
     public static final String STORAGE_PROVIDER_VPLEX = "STORAGE_PROVIDER.vplex";
@@ -38,10 +39,11 @@ public class StorageSystemTypes {
     public static final String STORAGE_PROVIDER_DATA_DOMAIN = "STORAGE_PROVIDER.ddmc";
     public static final String STORAGE_PROVIDER_IBMXIV = "STORAGE_PROVIDER.ibmxiv";
     public static final String STORAGE_PROVIDER_XTREMIO = "STORAGE_PROVIDER.xtremio";
+    public static final String STORAGE_PROVIDER_CEPH = "STORAGE_PROVIDER.ceph";
 
-    public static final String[] BLOCK_TYPES = { VMAX, VNX_BLOCK, VPLEX, HITACHI, OPENSTACK, SCALEIO, SCALEIOAPI, XTREMIO, VNXe, IBMXIV };
+    public static final String[] BLOCK_TYPES = { VMAX, VNX_BLOCK, VPLEX, HITACHI, OPENSTACK, SCALEIO, SCALEIOAPI, XTREMIO, VNXe, IBMXIV, CEPH };
     public static final String[] FILE_TYPES = { ISILON, VNX_FILE, NETAPP, DATA_DOMAIN, VNXe, NETAPPC };
-    public static final String[] STORAGE_PROVIDER_TYPES = { VMAX, VNX_BLOCK, HITACHI, VPLEX, OPENSTACK, SCALEIO, SCALEIOAPI, DATA_DOMAIN, IBMXIV, XTREMIO };
+    public static final String[] STORAGE_PROVIDER_TYPES = { VMAX, VNX_BLOCK, HITACHI, VPLEX, OPENSTACK, SCALEIO, SCALEIOAPI, DATA_DOMAIN, IBMXIV, XTREMIO, CEPH };
     public static final String[] NON_SMIS_TYPES = { ISILON, VNX_FILE, NETAPP, XTREMIO, VNXe, NETAPPC, ECS };
 
     public static final StringOption[] OPTIONS = {
@@ -58,7 +60,8 @@ public class StorageSystemTypes {
             new StringOption(SCALEIOAPI, getDisplayValue(STORAGE_PROVIDER_SCALEIOAPI)),
             new StringOption(DATA_DOMAIN, getDisplayValue(STORAGE_PROVIDER_DATA_DOMAIN)),
             new StringOption(IBMXIV, getDisplayValue(STORAGE_PROVIDER_IBMXIV)),
-            new StringOption(XTREMIO, getDisplayValue(STORAGE_PROVIDER_XTREMIO))
+            new StringOption(XTREMIO, getDisplayValue(STORAGE_PROVIDER_XTREMIO)),
+            new StringOption(CEPH, getDisplayValue(STORAGE_PROVIDER_CEPH))
     };
 
     public static final StringOption[] SMIS_OPTIONS = StringOption.options(STORAGE_PROVIDER_TYPES, OPTION_PREFIX);

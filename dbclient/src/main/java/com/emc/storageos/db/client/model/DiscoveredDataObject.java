@@ -33,7 +33,8 @@ public class DiscoveredDataObject extends DataObject {
         vnxe,
         scaleio,
         xtremio,
-        ecs;
+        ecs,
+        ceph;
 
         static public boolean isFileStorageSystem(Type type) {
             return (type == isilon || type == vnxfile || type == netapp || type == netappc || type == vnxe || type == datadomain);
@@ -47,7 +48,8 @@ public class DiscoveredDataObject extends DataObject {
                     (type == openstack) ||
                     (type == vplex) ||
                     (type == ibmxiv) ||
-                    (type == scaleio);
+                    (type == scaleio) ||
+                    (type == ceph);
         }
 
         static public boolean isVPlexStorageSystem(Type type) {
@@ -59,7 +61,7 @@ public class DiscoveredDataObject extends DataObject {
         }
 
         static public boolean isBlockStorageSystem(Type type) {
-            return (type == vnxblock || type == vmax || type == vnxe || type == hds || type == ibmxiv || type == xtremio);
+            return (type == vnxblock || type == vmax || type == vnxe || type == hds || type == ibmxiv || type == xtremio || type == ceph);
         }
 
         static public boolean isHDSStorageSystem(Type type) {

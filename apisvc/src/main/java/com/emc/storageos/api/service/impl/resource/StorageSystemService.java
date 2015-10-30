@@ -503,7 +503,8 @@ public class StorageSystemService extends TaskResourceService {
         // create Task with ready state and return it. Discovery not needed.
         if (systemType.equals(StorageSystem.Type.vmax) || systemType.equals(StorageSystem.Type.vnxblock)
                 || systemType.equals(StorageSystem.Type.hds) || systemType.equals(StorageSystem.Type.openstack)
-                || systemType.equals(StorageSystem.Type.scaleio) || systemType.equals(StorageSystem.Type.xtremio)) {
+                || systemType.equals(StorageSystem.Type.scaleio) || systemType.equals(StorageSystem.Type.xtremio)
+                || systemType.equals(StorageSystem.Type.ceph)) {
             // this check is to inform the user that he/she can not update fields other than name and max_resources.
             if (param.getIpAddress() != null || param.getPortNumber() != null || param.getUserName() != null ||
                     param.getPassword() != null || param.getSmisProviderIP() != null || param.getSmisPortNumber() != null ||

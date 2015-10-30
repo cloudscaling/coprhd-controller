@@ -272,7 +272,8 @@ public class StorageProviderService extends TaskResourceService {
         if (StorageProvider.InterfaceType.hicommand.name().equalsIgnoreCase(interfaceType)
                 || StorageProvider.InterfaceType.smis.name().equalsIgnoreCase(interfaceType)
                 || StorageProvider.InterfaceType.cinder.name().equalsIgnoreCase(interfaceType)
-                || StorageProvider.InterfaceType.ibmxiv.name().equalsIgnoreCase(interfaceType)) {
+                || StorageProvider.InterfaceType.ibmxiv.name().equalsIgnoreCase(interfaceType)
+                /*|| StorageProvider.InterfaceType.ceph.name().equalsIgnoreCase(interfaceType)*/) {
             controller.startMonitoring(new AsyncTask(StorageProvider.class, provider.getId(), taskId),
                     getSystemTypeByInterface(interfaceType));
         }
@@ -291,6 +292,8 @@ public class StorageProviderService extends TaskResourceService {
             return StorageSystem.Type.openstack;
         } else if (StorageProvider.InterfaceType.ibmxiv.name().equalsIgnoreCase(interfaceType)) {
             return StorageSystem.Type.ibmxiv;
+        /*} else if (StorageProvider.InterfaceType.ceph.name().equalsIgnoreCase(interfaceType)) {
+            return StorageSystem.Type.ceph;*/
         }
         return null;
     }
