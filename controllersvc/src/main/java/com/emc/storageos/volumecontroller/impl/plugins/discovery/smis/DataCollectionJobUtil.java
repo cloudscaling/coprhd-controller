@@ -362,8 +362,6 @@ public class DataCollectionJobUtil {
         accessProfile.setUserName(providerInfo.getUserName());
         accessProfile.setPassword(providerInfo.getPassword());
         accessProfile.setSystemType("ceph");
-        accessProfile.setPortNumber(providerInfo.getPortNumber());
-        accessProfile.setSslEnable(String.valueOf(providerInfo.getUseSSL()));
     }
     
     /**
