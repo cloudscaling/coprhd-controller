@@ -23,7 +23,7 @@ public class CephNativeClient implements CephClient {
     public ClusterInfo getClusterInfo() throws CephException {
         ClusterInfo info = new ClusterInfo();
         try {
-            info.Fsid = _rados.clusterFsid();
+            info.setFsid(_rados.clusterFsid());
         } catch (RadosException e) {
             throw CephException.exceptions.operationException(e);
         }
