@@ -552,6 +552,14 @@ public class DataCollectionJobUtil {
             }
         } else if (storageDevice.getSystemType().equals(Type.hds.toString())) {
             populateHDSAccessProfile(accessProfile, storageDevice, nameSpace);
+        }  else if (storageDevice.getSystemType().equals(
+                Type.ceph.toString())) {
+            accessProfile.setSystemType(storageDevice.getSystemType());
+            accessProfile.setIpAddress(storageDevice.getSmisProviderIP());
+            accessProfile.setUserName(storageDevice.getSmisUserName());
+            accessProfile.setserialID(storageDevice.getSerialNumber());
+            accessProfile.setPassword(storageDevice.getSmisPassword());
+            accessProfile.setLastSampleTime(0L);
         } else {
             throw new RuntimeException("populateAccessProfile: Device type unknown : "
                     + storageDevice.getSystemType());
