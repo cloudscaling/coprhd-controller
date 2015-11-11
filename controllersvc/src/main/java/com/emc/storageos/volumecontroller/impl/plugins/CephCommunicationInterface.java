@@ -1,7 +1,5 @@
 package com.emc.storageos.volumecontroller.impl.plugins;
 
-import static com.emc.storageos.db.client.util.CustomQueryUtility.queryActiveResourcesByAltId;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,38 +15,46 @@ import com.emc.storageos.ceph.CephException;
 import com.emc.storageos.ceph.model.ClusterInfo;
 import com.emc.storageos.ceph.model.PoolInfo;
 import com.emc.storageos.db.client.URIUtil;
-import com.emc.storageos.db.client.constraint.AlternateIdConstraint;
 import com.emc.storageos.db.client.model.DiscoveredDataObject;
-import com.emc.storageos.db.client.model.HostInterface;
+import com.emc.storageos.db.client.model.Network;
+import com.emc.storageos.db.client.model.NetworkSystem;
+import com.emc.storageos.db.client.model.StorageHADomain;
+import com.emc.storageos.db.client.model.StorageHADomain.HADomainType;
 import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StoragePort;
+import com.emc.storageos.db.client.model.StorageProtocol;
+import com.emc.storageos.db.client.model.StorageProtocol.Block;
+import com.emc.storageos.db.client.model.StorageProtocol.Transport;
+import com.emc.storageos.db.client.util.CustomQueryUtility;
 import com.emc.storageos.db.client.model.StorageProvider;
 import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.db.client.model.StringSet;
 import com.emc.storageos.db.client.model.DiscoveredDataObject.CompatibilityStatus;
 import com.emc.storageos.db.client.model.DiscoveredDataObject.DiscoveryStatus;
 import com.emc.storageos.db.client.model.DiscoveredDataObject.RegistrationStatus;
+import com.emc.storageos.db.client.model.HostInterface.Protocol;
 import com.emc.storageos.db.client.model.StoragePool.CopyTypes;
 import com.emc.storageos.db.client.model.StoragePool.PoolOperationalStatus;
 import com.emc.storageos.db.client.model.StoragePool.PoolServiceType;
-import com.emc.storageos.db.client.model.StoragePool.SupportedDriveTypeValues;
 import com.emc.storageos.db.client.model.StoragePool.SupportedResourceTypes;
+import com.emc.storageos.db.client.model.StoragePort.OperationalStatus;
+import com.emc.storageos.db.client.model.StoragePort.PortType;
 import com.emc.storageos.plugins.AccessProfile;
 import com.emc.storageos.plugins.BaseCollectionException;
 import com.emc.storageos.plugins.StorageSystemViewObject;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
 import com.emc.storageos.volumecontroller.impl.StoragePoolAssociationHelper;
+import com.emc.storageos.volumecontroller.impl.StoragePortAssociationHelper;
 import com.emc.storageos.volumecontroller.impl.utils.DiscoveryUtils;
 
 public class CephCommunicationInterface extends ExtendedCommunicationInterfaceImpl {
     private static final Logger _log = LoggerFactory.getLogger(CephCommunicationInterface.class);
-    private static final Set<String> RBD_ONLY = new StringSet(); //Collections.singleton("RBD");
+    private static final Set<String> RBD_ONLY = Collections.singleton(Protocol.RBD.name());
     private static final StringSet COPY_TYPES = new StringSet();
+    private static final String PORT_NAME = "Ceph Port";
+    private static final String PORT_GROUP = "Ceph Port Group";
 
     static {
-        RBD_ONLY.add("RBD");
-        RBD_ONLY.add("iSCSI");
-        RBD_ONLY.add("FC");
         COPY_TYPES.add(CopyTypes.ASYNC.name()); // ???
     }
 
@@ -116,8 +122,8 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
             for (PoolInfo pool: pools) {
                 String poolNativeGUID = NativeGUIDGenerator.generateNativeGuid(
                         system, Long.toString(pool.getId()), NativeGUIDGenerator.POOL);
-                List<StoragePool> storagePools =
-                        queryActiveResourcesByAltId(_dbClient, StoragePool.class, "nativeGuid", poolNativeGUID);
+                List<StoragePool> storagePools = CustomQueryUtility.queryActiveResourcesByAltId(
+                        _dbClient, StoragePool.class, "nativeGuid", poolNativeGUID);
                 StoragePool storagePool = null;
                 if (storagePools.isEmpty()) {
                     storagePool = new StoragePool();
@@ -159,6 +165,98 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
             allPools.addAll(updatePools);
             DiscoveryUtils.checkStoragePoolsNotVisible(allPools, _dbClient, system.getId());
             _dbClient.createObject(newPools);
+
+            String adapterNativeGUID = NativeGUIDGenerator.generateNativeGuid(
+                    system, "-", NativeGUIDGenerator.ADAPTER); // ???
+            List<StorageHADomain> storageAdapters = CustomQueryUtility.queryActiveResourcesByAltId
+                    (_dbClient, StorageHADomain.class, "nativeGuid", adapterNativeGUID);
+            StorageHADomain storageAdapter = null;
+            if (storageAdapters.isEmpty()) {
+                storageAdapter = new StorageHADomain();
+                storageAdapter.setId(URIUtil.createId(StorageHADomain.class));
+                storageAdapter.setStorageDeviceURI(system.getId());
+                storageAdapter.setNativeGuid(adapterNativeGUID);
+                storageAdapter.setAdapterName(monitorHost);
+                storageAdapter.setName(monitorHost);
+                storageAdapter.setLabel(monitorHost);
+
+                storageAdapter.setNumberofPorts("1");
+                storageAdapter.setAdapterType(HADomainType.FRONTEND.name());
+                storageAdapter.setProtocol(Block.RBD.name());
+//                storageAdapter.setInactive(false); why???
+                _dbClient.createObject(storageAdapter);
+            } else { 
+                storageAdapter = storageAdapters.get(0);
+                if (storageAdapters.size() != 1) {
+                    _log.warn(String.format("There are %d StorageHADomains with nativeGuid = %s", storageAdapters.size(),
+                            adapterNativeGUID));
+                }
+            }
+
+            ClusterInfo clusterInfo = cephClient.getClusterInfo();
+            String networkNativeGUID = NativeGUIDGenerator.generateTransportZoneNativeGuid(
+                    Transport.RBD.toString(), NetworkSystem.Type.ceph.toString(), clusterInfo.getFsid());
+            List<Network> storageNetworks = CustomQueryUtility.queryActiveResourcesByAltId(
+                    _dbClient, Network.class, "nativeGuid", networkNativeGUID);
+            Network storageNetwork;
+            if (storageNetworks.isEmpty()) {
+                storageNetwork = new Network();
+                storageNetwork.setId(URIUtil.createId(Network.class));
+                storageNetwork.setNativeId(clusterInfo.getFsid());
+                storageNetwork.setNativeGuid(networkNativeGUID);
+                storageNetwork.setLabel(String.format("CephNetwork-%s", clusterInfo.getFsid()));
+
+                storageNetwork.setTransportType(StorageProtocol.Transport.RBD.name());
+
+                storageNetwork.setRegistrationStatus(DiscoveredDataObject.RegistrationStatus.REGISTERED.name());
+                storageNetwork.setDiscovered(true);
+//                storageNetwork.setInactive(false); why???
+                _dbClient.createObject(storageNetwork);
+            } else {
+                storageNetwork = storageNetworks.get(0);
+                if (storageNetworks.size() != 1) {
+                    _log.warn(String.format("There are %d Networks with nativeGuid = %s", storageNetworks.size(),
+                            networkNativeGUID));
+                }
+            }
+
+            String portNativeGUID = NativeGUIDGenerator.generateNativeGuid(
+                    system, "-", NativeGUIDGenerator.PORT); // ???
+            List<StoragePort> storagePorts = CustomQueryUtility.queryActiveResourcesByAltId(
+                    _dbClient, StoragePort.class, "nativeGuid", portNativeGUID);
+            StoragePort storagePort = null;
+            if (storagePorts.isEmpty()) {
+                storagePort = new StoragePort();
+                storagePort.setId(URIUtil.createId(StoragePort.class));
+                storagePort.setNativeGuid(portNativeGUID);
+                storagePort.setPortNetworkId(portNativeGUID);
+                storagePort.setPortName(PORT_NAME);
+                storagePort.setPortGroup(PORT_GROUP);
+//                storagePort.setLabel(portName); ???
+
+                storagePort.setStorageDevice(system.getId());
+                storagePort.setNetwork(storageNetwork.getId());
+                storagePort.setStorageHADomain(storageAdapter.getId());
+                storagePort.setPortType(PortType.frontend.name());
+                storagePort.setTransportType(Transport.RBD.name());
+
+                storagePort.setOperationalStatus(OperationalStatus.OK.name());
+                storagePort.setCompatibilityStatus(CompatibilityStatus.COMPATIBLE.name());
+                storagePort.setDiscoveryStatus(DiscoveryStatus.VISIBLE.name());
+                storagePort.setRegistrationStatus(RegistrationStatus.REGISTERED.toString());
+//                storagePort.setInactive(false); why???
+                _dbClient.createObject(storagePort);
+            } else {
+                storagePort = storagePorts.get(0);
+                if (storagePorts.size() != 1) {
+                    _log.warn(String.format("There are %d StoragePorts with nativeGuid = %s", storagePorts.size(),
+                            portNativeGUID));
+                }
+            }
+
+            StoragePortAssociationHelper.runUpdatePortAssociationsProcess(
+                    Collections.singletonList(storagePort), null, _dbClient, _coordinator, allPools);
+
             statusMsg = String.format("Discovery completed successfully for Storage System: %s",
                     system.getNativeGuid());
         } catch (Exception e) {
