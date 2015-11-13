@@ -217,6 +217,10 @@ public class ProtocolsAttrMatcher extends AttributeMatcher {
             protocols.add(Block.ScaleIO.name());
             return protocols;
         }
+        if (Transport.RBD.name().equals(transport)) {
+            protocols.add(Block.RBD.name());
+            return protocols;
+        }
         return protocols;
     }
 

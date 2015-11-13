@@ -130,6 +130,8 @@ public class NetworkUtils {
             protocols.add(BlockProtocols.FCoE);
         } else if (TransportProtocols.isScaleIO(network.getTransportType())) {
             protocols.add(BlockProtocols.ScaleIO);
+        } else if (TransportProtocols.isRBD(network.getTransportType())) {
+            protocols.add(BlockProtocols.RBD);
         }
         return protocols;
     }

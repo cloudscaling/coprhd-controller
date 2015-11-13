@@ -15,8 +15,9 @@ public class TransportProtocols {
     public static final String IP = "IP";
     public static final String ETHERNET = "Ethernet";
     public static final String SCALEIO = "ScaleIO";
+    public static final String RBD = "RBD";
 
-    public static final String[] VALUES = { FC, IP, ETHERNET, SCALEIO };
+    public static final String[] VALUES = { FC, IP, ETHERNET, SCALEIO, RBD };
     public static StringOption[] OPTIONS = StringOption.options(VALUES, "TransportProtocol");
 
     public static boolean isFc(String type) {
@@ -33,6 +34,10 @@ public class TransportProtocols {
 
     public static boolean isScaleIO(String type) {
         return SCALEIO.equals(type);
+    }
+
+    public static boolean isRBD(String type) {
+        return RBD.equals(type);
     }
 
     public static StringOption option(String type) {
