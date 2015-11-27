@@ -145,8 +145,8 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                     storagePool.setOperationalStatus(PoolOperationalStatus.READY.name());
                     storagePool.setDiscoveryStatus(DiscoveryStatus.VISIBLE.name());
                     storagePool.setRegistrationStatus(RegistrationStatus.REGISTERED.toString());
-                    storagePool.setMinimumThickVolumeSize(1024L); // ???
-                    storagePool.setMaximumThickVolumeSize(10737418240L); // ???
+                    storagePool.setMinimumThinVolumeSize(1024L); // ???
+                    storagePool.setMaximumThinVolumeSize(10737418240L); // ???
                     storagePool.setFreeCapacity(10737418240L); // ???
                     storagePool.setTotalCapacity(10737418240L); // ???
 //                    storagePool.setInactive(false); why???

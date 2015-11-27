@@ -3,8 +3,11 @@ package com.emc.storageos.ceph;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.ceph.rados.IoCTX;
 import com.ceph.rados.Rados;
 import com.ceph.rados.exceptions.RadosException;
+import com.ceph.rbd.RbdException;
+import com.ceph.rbd.RbdImage;
 import com.emc.storageos.ceph.model.ClusterInfo;
 import com.emc.storageos.ceph.model.PoolInfo;
 
@@ -48,5 +51,52 @@ public class CephNativeClient implements CephClient {
             throw CephException.exceptions.operationException(e);
         }
         return pools;
+    }
+
+    public void createImage(String pool, String name, long size) throws CephException {
+        IoCTX ioCtx = null;
+        try {
+            ioCtx = _rados.ioCtxCreate(pool);
+            Rbd rbd = new Rbd(ioCtx);
+            rbd.create(name, size, 0L);
+        } catch (RadosException | RbdException e) {
+            throw CephException.exceptions.operationException(e);
+        } finally {
+            if (ioCtx != null)
+                _rados.ioCtxDestroy(ioCtx);
+        }
+    }
+
+    public void deleteImage(String pool, String name) throws CephException {
+        IoCTX ioCtx = null;
+        try {
+            ioCtx = _rados.ioCtxCreate(pool);
+            Rbd rbd = new Rbd(ioCtx);
+            rbd.remove(name);
+        } catch (RadosException | RbdException e) {
+            throw CephException.exceptions.operationException(e);
+        } finally {
+            if (ioCtx != null)
+                _rados.ioCtxDestroy(ioCtx);
+        }
+    }
+
+    public void resizeImage(String pool, String name, long size) throws CephException {
+        IoCTX ioCtx = null;
+        try {
+            ioCtx = _rados.ioCtxCreate(pool);
+            Rbd rbd = new Rbd(ioCtx);
+            RbdImage image = rbd.open(name);
+            try {
+                rbd.resize(image, size);
+            } finally {
+                rbd.close(image);
+            }
+        } catch (RadosException | RbdException e) {
+            throw CephException.exceptions.operationException(e);
+        } finally {
+            if (ioCtx != null)
+                _rados.ioCtxDestroy(ioCtx);
+        }
     }
 }

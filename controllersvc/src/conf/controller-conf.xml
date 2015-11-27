@@ -153,6 +153,7 @@
                 <entry key="scaleio" value-ref="scaleioStorageDevice"/>
                 <entry key="vnxe" value-ref="vnxeDevice"/>
                 <entry key="xtremio" value-ref="xtremioStorageDevice"/>
+                <entry key="ceph" value-ref="cephStorageDevice"/>
             </map>
         </property>
         <property name="dbClient" ref="dbclient"/>
@@ -371,6 +372,16 @@
         <property name="dbClient" ref="dbclient"/>
         <property name="nameGenerator" ref="defaultNameGenerator"/>
         <property name="xtremioRestClientFactory" ref="xtremioRestClientFactory"/>
+    </bean>
+
+    <bean id="cephStorageDevice" class="com.emc.storageos.volumecontroller.impl.ceph.CephStorageDevice">
+        <property name="dbClient" ref="dbclient"/>
+        <property name="cephClientFactory" ref="cephClientFactory"/>
+        <property name="nameGenerator" ref="defaultNameGenerator"/>
+    </bean>
+
+    <bean id="cephClientFactory" class="com.emc.storageos.ceph.CephClientFactory"
+        init-method="init" >
     </bean>
 
     <bean id="vmaxFindProviderFactory" class="com.emc.storageos.volumecontroller.impl.providerfinders.FindProviderFactory">
@@ -817,6 +828,7 @@
                 <entry key="vnxe" value-ref="vnxeDevice"/>
                 <entry key="xtremio" value-ref="xtremioStorageDevice"/>
                 <entry key="ibmxiv" value-ref="xivSmisDevice"/>
+                <entry key="ceph" value-ref="cephStorageDevice"/>
             </map>
         </property>
     </bean>
