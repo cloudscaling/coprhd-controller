@@ -15,14 +15,10 @@ import com.emc.storageos.ceph.CephException;
 import com.emc.storageos.ceph.model.ClusterInfo;
 import com.emc.storageos.ceph.model.PoolInfo;
 import com.emc.storageos.db.client.URIUtil;
-import com.emc.storageos.db.client.model.DiscoveredDataObject;
-import com.emc.storageos.db.client.model.Network;
-import com.emc.storageos.db.client.model.NetworkSystem;
 import com.emc.storageos.db.client.model.StorageHADomain;
 import com.emc.storageos.db.client.model.StorageHADomain.HADomainType;
 import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StoragePort;
-import com.emc.storageos.db.client.model.StorageProtocol;
 import com.emc.storageos.db.client.model.StorageProtocol.Block;
 import com.emc.storageos.db.client.model.StorageProtocol.Transport;
 import com.emc.storageos.db.client.util.CustomQueryUtility;
@@ -193,33 +189,6 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                 }
             }
 
-            ClusterInfo clusterInfo = cephClient.getClusterInfo();
-            String networkNativeGUID = NativeGUIDGenerator.generateTransportZoneNativeGuid(
-                    Transport.RBD.toString(), NetworkSystem.Type.ceph.toString(), clusterInfo.getFsid());
-            List<Network> storageNetworks = CustomQueryUtility.queryActiveResourcesByAltId(
-                    _dbClient, Network.class, "nativeGuid", networkNativeGUID);
-            Network storageNetwork;
-            if (storageNetworks.isEmpty()) {
-                storageNetwork = new Network();
-                storageNetwork.setId(URIUtil.createId(Network.class));
-                storageNetwork.setNativeId(clusterInfo.getFsid());
-                storageNetwork.setNativeGuid(networkNativeGUID);
-                storageNetwork.setLabel(String.format("CephNetwork-%s", clusterInfo.getFsid()));
-
-                storageNetwork.setTransportType(StorageProtocol.Transport.RBD.name());
-
-                storageNetwork.setRegistrationStatus(DiscoveredDataObject.RegistrationStatus.REGISTERED.name());
-                storageNetwork.setDiscovered(true);
-//                storageNetwork.setInactive(false); why???
-                _dbClient.createObject(storageNetwork);
-            } else {
-                storageNetwork = storageNetworks.get(0);
-                if (storageNetworks.size() != 1) {
-                    _log.warn(String.format("There are %d Networks with nativeGuid = %s", storageNetworks.size(),
-                            networkNativeGUID));
-                }
-            }
-
             String portNativeGUID = NativeGUIDGenerator.generateNativeGuid(
                     system, "-", NativeGUIDGenerator.PORT); // ???
             List<StoragePort> storagePorts = CustomQueryUtility.queryActiveResourcesByAltId(
@@ -235,10 +204,9 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
 //                storagePort.setLabel(portName); ???
 
                 storagePort.setStorageDevice(system.getId());
-                storagePort.setNetwork(storageNetwork.getId());
                 storagePort.setStorageHADomain(storageAdapter.getId());
                 storagePort.setPortType(PortType.frontend.name());
-                storagePort.setTransportType(Transport.RBD.name());
+                storagePort.setTransportType(Transport.IP.name());
 
                 storagePort.setOperationalStatus(OperationalStatus.OK.name());
                 storagePort.setCompatibilityStatus(CompatibilityStatus.COMPATIBLE.name());

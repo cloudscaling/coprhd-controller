@@ -201,6 +201,7 @@ public class ProtocolsAttrMatcher extends AttributeMatcher {
         }
         if (Transport.IP.name().equals(transport)) {
             protocols.add(Block.iSCSI.name());
+            protocols.add(Block.RBD.name());
             protocols.add(File.NFS.name());
             protocols.add(File.CIFS.name());
             protocols.add(File.NFSv4.name());
@@ -215,10 +216,6 @@ public class ProtocolsAttrMatcher extends AttributeMatcher {
         }
         if (Transport.ScaleIO.name().equals(transport)) {
             protocols.add(Block.ScaleIO.name());
-            return protocols;
-        }
-        if (Transport.RBD.name().equals(transport)) {
-            protocols.add(Block.RBD.name());
             return protocols;
         }
         return protocols;

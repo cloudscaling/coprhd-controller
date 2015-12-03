@@ -122,6 +122,7 @@ public class NetworkUtils {
         }
         else if (TransportProtocols.isIp(network.getTransportType())) {
             protocols.add(BlockProtocols.iSCSI);
+            protocols.add(BlockProtocols.RBD);
             protocols.add(FileProtocols.CIFS);
             protocols.add(FileProtocols.NFS);
             protocols.add(FileProtocols.NFSV4);
@@ -130,8 +131,6 @@ public class NetworkUtils {
             protocols.add(BlockProtocols.FCoE);
         } else if (TransportProtocols.isScaleIO(network.getTransportType())) {
             protocols.add(BlockProtocols.ScaleIO);
-        } else if (TransportProtocols.isRBD(network.getTransportType())) {
-            protocols.add(BlockProtocols.RBD);
         }
         return protocols;
     }

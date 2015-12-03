@@ -318,7 +318,6 @@ TransportProtocol.FC=FC
 TransportProtocol.IP=IP
 TransportProtocol.Ethernet=Ethernet
 TransportProtocol.ScaleIO=ScaleIO
-TransportProtocol.RBD=RBD
 
 StoragePoolAssignmentType.manual=Manual
 StoragePoolAssignmentType.automatic=Automatic
@@ -1457,7 +1456,6 @@ Networks.list.title=Networks
 Networks.editIP.title=Edit IP Network
 Networks.editFC.title=Edit Fibre Channel Network
 Networks.editScaleIO.title=Edit ScaleIO Network
-Networks.editRBD.title=Edit Ceph Block Device Network
 Networks.edit.description=Enter the information needed to change the network
 
 Networks.save.success=Saved '%s'
@@ -1476,8 +1474,6 @@ Network.endpointsFC.title=Fibre Channel Ports
 Network.endpointsFC.description=Ports assigned to this network
 Network.endpointsScaleIO.title=ScaleIO Ports
 Network.endpointsScaleIO.description=Ports discovered and assigned to this network
-Network.endpointsRBD.title=Ceph Block Device Ports
-Network.endpointsRBD.description=Ports discovered and assigned to this network
 endpoints.identifier=Identifier
 endpoints.ipAddress=IP Address
 endpoints.name=Name
