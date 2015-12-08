@@ -29,6 +29,7 @@ import com.iwave.ext.linux.command.MountCommand;
 import com.iwave.ext.linux.command.RescanDevicesCommand;
 import com.iwave.ext.linux.command.fdisk.FdiskListCommand;
 import com.iwave.ext.linux.command.iscsi.ListIQNsCommand;
+import com.iwave.ext.linux.command.rbd.MapRBDCommand;
 import com.iwave.ext.linux.model.HBAInfo;
 import com.iwave.ext.linux.model.IPInterface;
 import com.iwave.ext.linux.model.MountPoint;
@@ -251,6 +252,12 @@ public class LinuxSystemCLI {
         ListIQNsCommand command = new ListIQNsCommand();
         executeCommand(command);
         return command.getResults();
+    }
+
+    public void mapRBD(String pool, String name) {
+    	MapRBDCommand command = new MapRBDCommand();
+    	command.setVolume(pool, name);
+        executeCommand(command);
     }
 
     public CommandOutput executeCommand(String commandString) {
