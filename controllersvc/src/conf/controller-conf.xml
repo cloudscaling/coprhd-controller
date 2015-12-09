@@ -385,6 +385,13 @@
         <property name="dbClient" ref="dbclient"/>
         <property name="cephClientFactory" ref="cephClientFactory"/>
         <property name="nameGenerator" ref="defaultNameGenerator"/>
+        <property name="snapshotOperations" ref="cephSnapshotOperations"/>
+    </bean>
+
+    <bean id="cephSnapshotOperations" class="com.emc.storageos.volumecontroller.impl.ceph.CephSnapshotOperations">
+        <property name="dbClient" ref="dbclient"/>
+        <property name="cephClientFactory" ref="cephClientFactory"/>
+        <property name="nameGenerator" ref="defaultNameGenerator"/>
     </bean>
 
     <bean id="cephClientFactory" class="com.emc.storageos.ceph.CephClientFactory"
