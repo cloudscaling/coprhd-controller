@@ -1,5 +1,7 @@
 package com.emc.storageos.volumecontroller.impl.ceph;
 
+import static java.util.Arrays.asList;
+
 import java.net.URI;
 
 import java.util.Arrays;
@@ -155,7 +157,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         _log.info("{} Ceph doExportGroupCreate START ...", storage.getSerialNumber());
     	try {
     		filterInitiators(initiators);    		
-    		mapVolumes(storage, exportMask, volumeMap, initiators, targets, taskCompleter);    	
+    		mapVolumes(storage, exportMask, volumeMap, initiators, taskCompleter);    	
         } catch (Exception e) {
             _log.error("Encountered an exception", e);
             ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("doExportGroupCreate", e.getMessage());
@@ -179,6 +181,39 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             taskCompleter.error(_dbClient, code);
         }
         _log.info("{} doExportGroupDelete END...", storage.getSerialNumber()); 	
+    }
+    
+    @Override
+    public void doExportAddVolumes(StorageSystem storage, ExportMask exportMask, Map<URI, Integer> volumeMap, TaskCompleter taskCompleter)
+            throws DeviceControllerException {
+        _log.info("{} Ceph doExportAddVolumes START ...", storage.getSerialNumber());
+    	try {
+            Set<Initiator> initiators = ExportMaskUtils.getInitiatorsForExportMask(_dbClient, exportMask, null);
+            filterInitiators(initiators);
+    		mapVolumes(storage, exportMask, volumeMap, initiators, taskCompleter);    	
+    	} catch (Exception e) {
+            _log.error("Encountered an exception", e);
+            ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("doExportAddVolumes", e.getMessage());
+            taskCompleter.error(_dbClient, code);
+        }
+        _log.info("{} doExportAddVolumes END...", storage.getSerialNumber()); 	
+
+    }
+
+    @Override
+    public void doExportRemoveVolumes(StorageSystem storage, ExportMask exportMask, List<URI> volumeURIs, TaskCompleter taskCompleter)
+            throws DeviceControllerException {
+        _log.info("{} Ceph doExportRemoveVolumes START ...", storage.getSerialNumber());
+    	try {
+	        Set<Initiator> initiators = ExportMaskUtils.getInitiatorsForExportMask(_dbClient, exportMask, null);
+	        filterInitiators(initiators);
+	        unmapVolumes(storage, exportMask, volumeURIs, initiators, taskCompleter);
+        } catch (Exception e) {
+            _log.error("Encountered an exception", e);
+            ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("doExportRemoveVolumes", e.getMessage());
+            taskCompleter.error(_dbClient, code);
+        }
+        _log.info("{} doExportRemoveVolumes END...", storage.getSerialNumber()); 	
     }
         
     private CephClient getClient(StorageSystem storage) {
@@ -209,14 +244,10 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     }
 
     private void mapVolumes(StorageSystem storage, ExportMask exportMask, Map<URI, Integer> volumeMap, Collection<Initiator> initiators,
-    		List<URI> targets, TaskCompleter completer) {
+    		TaskCompleter completer) {
         _log.info("mapVolumes: exportMask id: {}", exportMask.getId());
         _log.info("mapVolumes: volumeMap: {}", volumeMap);    	
         _log.info("mapVolumes: initiators: {}", initiators);
-        _log.info("mapVolumes: targets: {}", targets);
-        VolumeURIHLU[] volumeLunArray = ControllerUtils.getVolumeURIHLUArray(
-                storage.getSystemType(), volumeMap, _dbClient);            
-        _log.info("mapVolumes: volumeLunArray: {}", volumeLunArray);    	
         for (Map.Entry<URI, Integer> volMapEntry : volumeMap.entrySet()) {
             Volume volume = _dbClient.queryObject(Volume.class, volMapEntry.getKey());
             StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());            
@@ -237,6 +268,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
                 	String msg = String.format("Unexpected initiator protocol %s, port %s, pool %s, volume %s",
                 			initiator.getProtocol(), initiator.getInitiatorPort(), poolName, volumeName);
                     ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("mapVolumes", msg);
+                    completer.error(_dbClient, code);
                     return;
                 }
             }
