@@ -30,6 +30,7 @@ import com.iwave.ext.linux.command.RescanDevicesCommand;
 import com.iwave.ext.linux.command.fdisk.FdiskListCommand;
 import com.iwave.ext.linux.command.iscsi.ListIQNsCommand;
 import com.iwave.ext.linux.command.rbd.MapRBDCommand;
+import com.iwave.ext.linux.command.rbd.UnmapRBDCommand;
 import com.iwave.ext.linux.model.HBAInfo;
 import com.iwave.ext.linux.model.IPInterface;
 import com.iwave.ext.linux.model.MountPoint;
@@ -254,9 +255,15 @@ public class LinuxSystemCLI {
         return command.getResults();
     }
 
-    public void mapRBD(String pool, String name) {
+    public void mapRBD(String monitors, String user, String key, String pool, String volume) {
     	MapRBDCommand command = new MapRBDCommand();
-    	command.setVolume(pool, name);
+    	command.setVolume(monitors, user, key, pool, volume);
+        executeCommand(command);
+    }
+
+    public void unmapRBD(Integer volumeNumber) {
+    	UnmapRBDCommand command = new UnmapRBDCommand();
+    	command.setVolume(volumeNumber);
         executeCommand(command);
     }
 
