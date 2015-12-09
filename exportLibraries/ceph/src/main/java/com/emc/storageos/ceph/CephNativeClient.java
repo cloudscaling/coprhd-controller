@@ -102,5 +102,43 @@ public class CephNativeClient implements CephClient {
             if (ioCtx != null)
                 _rados.ioCtxDestroy(ioCtx);
         }
-    }    
+    }
+
+    public void createSnap(String pool, String imageName, String snapName) throws CephException {
+        IoCTX ioCtx = null;
+        try {
+            ioCtx = _rados.ioCtxCreate(pool);
+            Rbd rbd = new Rbd(ioCtx);
+            RbdImage image = rbd.open(imageName);
+            try {
+                image.snapCreate(snapName);
+            } finally {
+                rbd.close(image);
+            }
+        } catch (RadosException | RbdException e) {
+            throw CephException.exceptions.operationException(e);
+        } finally {
+            if (ioCtx != null)
+                _rados.ioCtxDestroy(ioCtx);
+        }
+    }
+
+    public void deleteSnap(String pool, String imageName, String snapName) throws CephException {
+        IoCTX ioCtx = null;
+        try {
+            ioCtx = _rados.ioCtxCreate(pool);
+            Rbd rbd = new Rbd(ioCtx);
+            RbdImage image = rbd.open(imageName);
+            try {
+                image.snapRemove(snapName);
+            } finally {
+                rbd.close(image);
+            }
+        } catch (RadosException | RbdException e) {
+            throw CephException.exceptions.operationException(e);
+        } finally {
+            if (ioCtx != null)
+                _rados.ioCtxDestroy(ioCtx);
+        }
+    }
 }

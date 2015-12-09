@@ -1,6 +1,8 @@
 package com.emc.storageos.volumecontroller.impl.ceph;
 
 import java.net.URI;
+
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -14,6 +16,7 @@ import com.emc.storageos.ceph.CephClient;
 import com.emc.storageos.ceph.CephClientFactory;
 import com.emc.storageos.db.client.DbClient;
 import com.emc.storageos.db.client.model.BlockObject;
+import com.emc.storageos.db.client.model.BlockSnapshot;
 import com.emc.storageos.db.client.model.ExportMask;
 import com.emc.storageos.db.client.model.Host;
 import com.emc.storageos.db.client.model.HostInterface;
@@ -29,6 +32,7 @@ import com.emc.storageos.exceptions.DeviceControllerException;
 import com.emc.storageos.svcs.errorhandling.model.ServiceCoded;
 import com.emc.storageos.svcs.errorhandling.model.ServiceError;
 import com.emc.storageos.volumecontroller.DefaultBlockStorageDevice;
+import com.emc.storageos.volumecontroller.SnapshotOperations;
 import com.emc.storageos.volumecontroller.TaskCompleter;
 import com.emc.storageos.volumecontroller.impl.ControllerUtils;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
@@ -39,6 +43,8 @@ import com.emc.storageos.volumecontroller.impl.utils.VirtualPoolCapabilityValues
 import com.iwave.ext.linux.LinuxSystemCLI;
 import com.iwave.ext.linux.command.rbd.MapRBDCommand;
 
+import com.google.common.collect.Lists;
+
 
 public class CephStorageDevice extends DefaultBlockStorageDevice {
 
@@ -46,6 +52,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 
     private DbClient _dbClient;
     private CephClientFactory _cephClientFactory;
+    private SnapshotOperations snapshotOperations;
     private NameGenerator _nameGenerator;
 
     public void setDbClient(DbClient dbClient) {
@@ -54,6 +61,10 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 
     public void setCephClientFactory(CephClientFactory cephClientFactory) {
         _cephClientFactory = cephClientFactory;
+    }
+
+    public void setSnapshotOperations(SnapshotOperations snapshotOperations) {
+        this.snapshotOperations = snapshotOperations;
     }
 
     public void setNameGenerator(NameGenerator nameGenerator) {
@@ -137,6 +148,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         }
     }
     
+    @Override
     public void doExportGroupCreate(StorageSystem storage, ExportMask exportMask,
             Map<URI, Integer> volumeMap, List<Initiator> initiators, List<URI> targets,
             TaskCompleter taskCompleter) throws DeviceControllerException {
@@ -275,5 +287,30 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             }
         }
         completer.ready(_dbClient);
+    }
+
+    @Override
+    public void doCreateSnapshot(StorageSystem storage, List<URI> snapshotList, Boolean createInactive, Boolean readOnly,
+            TaskCompleter taskCompleter) throws DeviceControllerException {
+        Iterator<BlockSnapshot> snapshots = _dbClient.queryIterativeObjects(BlockSnapshot.class, snapshotList);
+        List<BlockSnapshot> blockSnapshots = Lists.newArrayList(snapshots);
+        if (ControllerUtils.checkSnapshotsInConsistencyGroup(blockSnapshots, _dbClient, taskCompleter)) {
+            super.doCreateSnapshot(storage, snapshotList, createInactive, readOnly, taskCompleter);
+        } else {
+            URI snapshot = blockSnapshots.get(0).getId();
+            snapshotOperations.createSingleVolumeSnapshot(storage, snapshot, createInactive,
+                    readOnly, taskCompleter);
+        }
+    }
+
+    @Override
+    public void doDeleteSnapshot(StorageSystem storage, URI snapshot, TaskCompleter taskCompleter) throws DeviceControllerException {
+        Iterator<BlockSnapshot> snapshots = _dbClient.queryIterativeObjects(BlockSnapshot.class, Arrays.asList(snapshot));
+        List<BlockSnapshot> blockSnapshots = Lists.newArrayList(snapshots);
+        if (ControllerUtils.checkSnapshotsInConsistencyGroup(blockSnapshots, _dbClient, taskCompleter)) {
+            super.doDeleteSnapshot(storage, snapshot, taskCompleter);
+        } else {
+            snapshotOperations.deleteSingleVolumeSnapshot(storage, snapshot, taskCompleter);
+        }
     }
 }

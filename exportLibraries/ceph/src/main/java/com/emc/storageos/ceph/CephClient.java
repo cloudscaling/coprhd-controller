@@ -12,4 +12,6 @@ public interface CephClient {
     public void createImage(String pool, String name, long size) throws CephException;
     public void deleteImage(String pool, String name) throws CephException;
     public void resizeImage(String pool, String name, long size) throws CephException;
+    public void createSnap(String pool, String imageName, String snapName) throws CephException;
+    public void deleteSnap(String pool, String imageName, String snapName) throws CephException;
 }
