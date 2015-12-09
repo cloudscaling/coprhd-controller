@@ -6,6 +6,7 @@ import java.util.List;
 import com.ceph.rados.IoCTX;
 import com.ceph.rados.Rados;
 import com.ceph.rados.exceptions.RadosException;
+import com.ceph.rbd.Rbd;
 import com.ceph.rbd.RbdException;
 import com.ceph.rbd.RbdImage;
 import com.emc.storageos.ceph.model.ClusterInfo;
@@ -92,7 +93,7 @@ public class CephNativeClient implements CephClient {
             Rbd rbd = new Rbd(ioCtx);
             RbdImage image = rbd.open(name);
             try {
-                rbd.resize(image, size);
+                image.resize(size);
             } finally {
                 rbd.close(image);
             }
