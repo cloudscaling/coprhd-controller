@@ -255,10 +255,11 @@ public class LinuxSystemCLI {
         return command.getResults();
     }
 
-    public void mapRBD(String monitors, String user, String key, String pool, String volume) {
+    public String mapRBD(String monitors, String user, String key, String pool, String volume) {
     	MapRBDCommand command = new MapRBDCommand();
     	command.setVolume(monitors, user, key, pool, volume);
         executeCommand(command);
+        return command.getResults();
     }
 
     public void unmapRBD(Integer volumeNumber) {

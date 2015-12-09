@@ -37,6 +37,7 @@ public class CephNativeClient implements CephClient {
         return info;
     }
 
+    @Override
     public List<PoolInfo> getPools() throws CephException {
         List<PoolInfo> pools = new ArrayList<PoolInfo>();
         try {
@@ -53,6 +54,7 @@ public class CephNativeClient implements CephClient {
         return pools;
     }
 
+    @Override
     public void createImage(String pool, String name, long size) throws CephException {
         IoCTX ioCtx = null;
         try {
@@ -67,6 +69,7 @@ public class CephNativeClient implements CephClient {
         }
     }
 
+    @Override
     public void deleteImage(String pool, String name) throws CephException {
         IoCTX ioCtx = null;
         try {
@@ -81,6 +84,7 @@ public class CephNativeClient implements CephClient {
         }
     }
 
+    @Override
     public void resizeImage(String pool, String name, long size) throws CephException {
         IoCTX ioCtx = null;
         try {
@@ -98,5 +102,5 @@ public class CephNativeClient implements CephClient {
             if (ioCtx != null)
                 _rados.ioCtxDestroy(ioCtx);
         }
-    }
+    }    
 }
