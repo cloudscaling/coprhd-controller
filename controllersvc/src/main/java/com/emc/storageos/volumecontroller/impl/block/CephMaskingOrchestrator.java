@@ -2,9 +2,12 @@ package com.emc.storageos.volumecontroller.impl.block;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -277,12 +280,183 @@ public class CephMaskingOrchestrator extends AbstractBasicMaskingOrchestrator {
                 taskCompleter.ready(_dbClient);
             }
         } catch (DeviceControllerException dex) {
-            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.
-            		operationFailed("exportGroupRemoveVolumes", dex.getMessage()));
+            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.operationFailed("exportGroupRemoveVolumes", dex.getMessage()));
         } catch (Exception ex) {
             _log.error("ExportGroup Orchestration failed.", ex);
-            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.
-            		operationFailed("exportGroupRemoveVolumes", ex.getMessage()));
+            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.operationFailed("exportGroupRemoveVolumes", ex.getMessage()));
         }
     }    
+    
+    @Override
+    public void exportGroupAddInitiators(URI storageURI, URI exportGroupURI, List<URI> initiatorURIs, String token) throws Exception {
+        ExportOrchestrationTask taskCompleter = new ExportOrchestrationTask(exportGroupURI, token);
+        try {
+            ExportGroup exportGroup = _dbClient.queryObject(ExportGroup.class, exportGroupURI);
+            StorageSystem storage = _dbClient.queryObject(StorageSystem.class, storageURI);
+
+            if (initiatorURIs != null && !initiatorURIs.isEmpty()) {
+                // Set up workflow steps.
+                Workflow workflow = _workflowService.getNewWorkflow(MaskingWorkflowEntryPoints.getInstance(), "exportGroupAddInitiators", true, token);
+
+                // Populate the portNames and the mapping of the portNames to Initiator URIs
+                Map<String, URI> portNameToInitiatorURI = new HashMap<>();
+                List<URI> hostURIs = new ArrayList<>();
+                List<String> portNames = new ArrayList<>();
+                processInitiators(exportGroup, initiatorURIs, portNames, portNameToInitiatorURI, hostURIs);
+
+                List<URI> initiatorURIsToPlace = new ArrayList<>(initiatorURIs);
+                Map<String, List<URI>> computeResourceToInitiators = mapInitiatorsToComputeResource(exportGroup, initiatorURIs);
+                Set<URI> partialMasks = new HashSet<>();
+                Map<String, Set<URI>> initiatorToExport =
+                        determineInitiatorToExportMaskPlacements(exportGroup, storageURI, computeResourceToInitiators,
+                                Collections.EMPTY_MAP, portNameToInitiatorURI, partialMasks);
+
+                Map<URI, List<URI>> exportToInitiators = toExportMaskToInitiatorURIs(initiatorToExport, portNameToInitiatorURI);
+                Map<URI, Integer> volumesToAdd = ExportUtils.getExportGroupVolumeMap(_dbClient, storage, exportGroup);
+                for (Map.Entry<URI, List<URI>> toAddInitiators : exportToInitiators.entrySet()) {
+                    ExportMask exportMask = _dbClient.queryObject(ExportMask.class, toAddInitiators.getKey());
+                    if (exportMask == null || exportMask.getInactive()) {
+                        continue;
+                    }
+                    for (URI toAddInitiator : toAddInitiators.getValue()) {
+                        if (!exportMask.hasInitiator(toAddInitiator.toString())) {
+                            _log.info(String.format("Add step to add initiator %s to ExportMask %s", toAddInitiator.toString(), exportMask.getMaskName()));
+                            generateExportMaskAddInitiatorsWorkflow(workflow, null, storage, exportGroup, exportMask, toAddInitiators.getValue(), null, null);
+                        } else if (volumesToAdd != null && volumesToAdd.size() > 0) {
+                            _log.info(String.format("Add step to add volumes %s to ExportMask %s", Joiner.on(',').join(volumesToAdd.entrySet()), exportMask.getMaskName()));
+                            generateExportMaskAddVolumesWorkflow(workflow, null, storage, exportGroup, exportMask, volumesToAdd);
+                        }
+                        initiatorURIsToPlace.remove(toAddInitiator);
+                    }
+                }
+
+                // If there are any new initiators that weren't already known to the system previously, add them now.
+                if (!initiatorURIsToPlace.isEmpty() && volumesToAdd != null) {
+                    Map<String, List<URI>> newComputeResources = mapInitiatorsToComputeResource(exportGroup, initiatorURIsToPlace);
+                    _log.info(String.format("Need to create ExportMasks for these compute resources %s", Joiner.on(',').join(newComputeResources.entrySet())));
+                    for (Map.Entry<String, List<URI>> toCreate : newComputeResources.entrySet()) {
+                        generateExportMaskCreateWorkflow(workflow, null, storage, exportGroup, toCreate.getValue(), volumesToAdd, null);
+                    }
+                }
+
+                String successMessage = String.format("ExportGroup add initiators successfully applied for StorageArray %s", storage.getLabel());
+                workflow.executePlan(taskCompleter, successMessage);
+            } else {
+                taskCompleter.ready(_dbClient);
+            }
+        } catch (DeviceControllerException dex) {
+            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.operationFailed("exportGroupAddInitiators", dex.getMessage()));
+        } catch (Exception ex) {
+            _log.error("ExportGroup Orchestration failed.", ex);
+            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.operationFailed("exportGroupAddInitiators", ex.getMessage()));
+        }
+    }
+
+    @Override
+    public void exportGroupRemoveInitiators(URI storageURI, URI exportGroupURI, List<URI> initiatorURIs, String token) throws Exception {
+        ExportOrchestrationTask taskCompleter = new ExportOrchestrationTask(exportGroupURI, token);
+        try {
+            ExportGroup exportGroup = _dbClient.queryObject(ExportGroup.class, exportGroupURI);
+            StorageSystem storage = _dbClient.queryObject(StorageSystem.class, storageURI);
+
+            if (initiatorURIs != null && !initiatorURIs.isEmpty() && exportGroup.getExportMasks() != null) {
+                // Set up workflow steps.
+                Workflow workflow = _workflowService.getNewWorkflow(
+                        MaskingWorkflowEntryPoints.getInstance(), "exportGroupRemoveInitiators", true, token);
+
+                // Create a mapping of ExportMask URI to initiators to remove
+                Map<URI, List<URI>> exportToInitiatorsToRemove = new HashMap<>();
+                Map<URI, List<URI>> exportToVolumesToRemove = new HashMap<>();
+                Map<URI, Integer> volumeMap = null;
+                for (String exportMaskURIStr : exportGroup.getExportMasks()) {
+                    URI exportMaskURI = URI.create(exportMaskURIStr);
+                    ExportMask exportMask = _dbClient.queryObject(ExportMask.class, exportMaskURI);
+                    if (exportMask == null) {
+                        continue;
+                    }
+                    for (URI initiatorURI : initiatorURIs) {
+                        Initiator initiator = _dbClient.queryObject(Initiator.class, initiatorURI);
+                        if (initiator == null || !exportMask.hasInitiator(initiatorURI.toString())) {
+                            continue;
+                        }
+                        if (ExportUtils.getInitiatorExportGroups(initiator, _dbClient).size() == 1) {
+                            List<URI> initiators = exportToInitiatorsToRemove.get(exportGroupURI);
+                            if (initiators == null) {
+                                initiators = new ArrayList<>();
+                                exportToInitiatorsToRemove.put(exportMaskURI, initiators);
+                            }
+                            initiators.add(initiatorURI);
+                        } else {
+                            if (volumeMap == null) {
+                                volumeMap = ExportUtils.getExportGroupVolumeMap(_dbClient, storage, exportGroup);
+                            }
+                            List<URI> volumeURIs = exportToVolumesToRemove.get(exportGroupURI);
+                            if (volumeURIs == null) {
+                                volumeURIs = new ArrayList<>();
+                                exportToVolumesToRemove.put(exportMaskURI, volumeURIs);
+                            }
+                            for (URI volumeURI : volumeMap.keySet()) {
+                                // Only add to the remove list for the ExportMask if
+                                // the EM is not being shared with another ExportGroup
+                                Integer count = ExportUtils.getNumberOfExportGroupsWithVolume(initiator, volumeURI, _dbClient);
+                                if (count == 1) {
+                                    volumeURIs.add(volumeURI);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Generate the remove initiators steps for the entries that were determined above
+                for (Map.Entry<URI, List<URI>> toRemoveInits : exportToInitiatorsToRemove.entrySet()) {
+                    ExportMask exportMask = _dbClient.queryObject(ExportMask.class, toRemoveInits.getKey());
+                    if (exportMask != null) {
+                        List<URI> removeInitURIs = toRemoveInits.getValue();
+                        List<String> exportMaskInitiatorURIs = new ArrayList<>(exportMask.getInitiators());
+                        for (URI uri : removeInitURIs) {
+                            exportMaskInitiatorURIs.remove(uri.toString());
+                        }
+                        if (exportMaskInitiatorURIs.isEmpty()) {
+                            _log.info(String.format("Adding step to delete ExportMask %s", exportMask.getMaskName()));
+                            generateExportMaskDeleteWorkflow(workflow, null, storage, exportGroup, exportMask, null);
+                        } else {
+                            _log.info(String.format("Adding step to remove initiators %s from ExportMask %s",Joiner.on(',').join(removeInitURIs), exportMask.getMaskName()));
+                            generateExportMaskRemoveInitiatorsWorkflow(workflow, null, storage, exportGroup, exportMask, removeInitURIs, true);
+                        }
+                    }
+                }
+
+                // Generate the remove volume for those cases where we remove initiators
+                // from an ExportGroup that contains more than one host/initiator
+                for (Map.Entry<URI, List<URI>> toRemoveVols : exportToVolumesToRemove.entrySet()) {
+                    ExportMask exportMask = _dbClient.queryObject(ExportMask.class, toRemoveVols.getKey());
+                    List<URI> removeVolumeURIs = toRemoveVols.getValue();
+                    if (exportMask != null && !removeVolumeURIs.isEmpty()) {
+                        List<String> exportMaskVolumeURIs = new ArrayList<>(exportMask.getVolumes().keySet());
+                        for (URI uri : removeVolumeURIs) {
+                            exportMaskVolumeURIs.remove(uri.toString());
+                        }
+                        if (exportMaskVolumeURIs.isEmpty()) {
+                            _log.info(String.format("Adding step to delete ExportMask %s", exportMask.getMaskName()));
+                            generateExportMaskDeleteWorkflow(workflow, null, storage, exportGroup, exportMask, null);
+                        } else {
+                            _log.info(String.format("Adding step to remove volumes %s from ExportMask %s",Joiner.on(',').join(removeVolumeURIs), exportMask.getMaskName()));
+                            generateExportMaskRemoveVolumesWorkflow(workflow, null, storage, exportGroup, exportMask, removeVolumeURIs, null);
+                        }
+                    }
+                }
+
+                String successMessage = String.format("ExportGroup remove initiators successfully applied for StorageArray %s", storage.getLabel());
+                workflow.executePlan(taskCompleter, successMessage);
+            } else {
+                taskCompleter.ready(_dbClient);
+            }
+        } catch (DeviceControllerException dex) {
+            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.operationFailed("exportGroupRemoveInitiators", dex.getMessage()));
+        } catch (Exception ex) {
+            _log.error("ExportGroup Orchestration failed.", ex);
+            taskCompleter.error(_dbClient, DeviceControllerErrors.ceph.operationFailed("exportGroupRemoveInitiators", ex.getMessage()));
+        }
+    }
+    
 }
