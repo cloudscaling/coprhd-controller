@@ -9,13 +9,19 @@ import com.iwave.ext.linux.command.LinuxResultsCommand;
 
 
 public class MapRBDCommand extends LinuxResultsCommand<String> {
+	private String _monitors;
+	private String _user;
+	private String _key;
 	private String _template;
 	
-	public MapRBDCommand() {
+	public MapRBDCommand(String monitors, String user, String key) {
+		this._monitors = monitors;
+		this._user = user;
+		this._key = key;
 		StringBuilder sb = new StringBuilder();
 		sb.append("volumes=( $(ls /sys/bus/rbd/devices/ | sort) );");
 		sb.append("size=${#volumes[@]};");
-		sb.append("echo '%s name=%s,secret=%s %s %s' > /sys/bus/rbd/add;");
+		sb.append("echo '%s name=%s,secret=%s %s %s %s' > /sys/bus/rbd/add;");
 		sb.append("if [[ $? != 0 ]]; then");
 		sb.append("  exit -1;");
 		sb.append("fi;");    			
@@ -27,9 +33,10 @@ public class MapRBDCommand extends LinuxResultsCommand<String> {
 		sb.append("  v1=${new_volumes[$index]};");
 		sb.append("  v2=${volumes[$index]};");
 		sb.append("  if [[ $v1 != $v2 ]]; then");
-		sb.append("    n=$(cat /sys/bus/rbd/devices/$v1/name);");
 		sb.append("    p=$(cat /sys/bus/rbd/devices/$v1/pool);");
-		sb.append("    if [[ $p == %s && $n == %s ]]; then");
+		sb.append("    n=$(cat /sys/bus/rbd/devices/$v1/name);");
+		sb.append("    s=$(cat /sys/bus/rbd/devices/$v1/current_snap);");		
+		sb.append("    if [[ $p == %s && $n == %s && $s == %s ]]; then");
 		sb.append("      id=$index;");
 		sb.append("      break;");
 		sb.append("    fi;");
@@ -44,8 +51,10 @@ public class MapRBDCommand extends LinuxResultsCommand<String> {
         setRunAsRoot(true);
     }
     
-    public void setVolume(String monitors, String user, String key, String pool, String volume) {
-    	String cmd = String.format(_template, monitors, user, key, pool, volume, pool, volume);
+    public void setVolume(String pool, String volume, String snapshot) {
+    	if (snapshot == null || snapshot.isEmpty())
+    		snapshot = "-";
+    	String cmd = String.format(_template, _monitors, _user, _key, pool, volume, snapshot, pool, volume, snapshot);
     	setCommand(cmd);
     }
 

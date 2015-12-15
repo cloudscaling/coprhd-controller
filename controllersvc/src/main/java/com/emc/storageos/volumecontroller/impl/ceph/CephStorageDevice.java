@@ -18,6 +18,8 @@ import org.slf4j.LoggerFactory;
 import com.emc.storageos.ceph.CephClient;
 import com.emc.storageos.ceph.CephClientFactory;
 import com.emc.storageos.db.client.DbClient;
+import com.emc.storageos.db.client.URIUtil;
+import com.emc.storageos.db.client.model.BlockMirror;
 import com.emc.storageos.db.client.model.BlockObject;
 import com.emc.storageos.db.client.model.BlockSnapshot;
 import com.emc.storageos.db.client.model.ExportGroup;
@@ -30,6 +32,7 @@ import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.db.client.model.TenantOrg;
 import com.emc.storageos.db.client.model.Volume;
 import com.emc.storageos.db.client.util.NameGenerator;
+import com.emc.storageos.db.client.util.NullColumnValueGetter;
 import com.emc.storageos.db.exceptions.DatabaseException;
 import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.exceptions.DeviceControllerException;
@@ -305,10 +308,28 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         _log.info("mapVolumes: initiators: {}", initiators);
     	try {
 	        for (Map.Entry<URI, Integer> volMapEntry : volumeMap.entrySet()) {
-	            Volume volume = _dbClient.queryObject(Volume.class, volMapEntry.getKey());
-	            StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());            
-	            String volumeName = volume.getNativeId();
+	        	URI objectUri = volMapEntry.getKey();
+	        	BlockObject object = Volume.fetchExportMaskBlockObject(_dbClient, objectUri);
+	        	Volume volume = null;
+	        	BlockSnapshot snapshot = null;
+	        	if (URIUtil.isType(objectUri, Volume.class) || URIUtil.isType(objectUri, BlockMirror.class)) {
+		        	volume = (Volume)object;
+	        	} else if (URIUtil.isType(objectUri, BlockSnapshot.class)) {
+	        		snapshot = (BlockSnapshot)object;
+	        		volume = _dbClient.queryObject(Volume.class, snapshot.getParent());
+	        	} else {
+                	String msg = String.format("Unsupported block object type URI %", objectUri);
+                    ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("mapVolumes", msg);
+                    completer.error(_dbClient, code);
+                    return;
+	        	}
+	            StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());
 	            String poolName = pool.getPoolName();
+	            String volumeName = volume.getNativeId();
+	            String snapshotName = null;
+	            if (snapshot != null) {
+	            	snapshotName = snapshot.getNativeId();
+	            }	            
 	            String monitorAddress = storage.getSmisProviderIP();
 	            String monitorUser = storage.getSmisUserName();
 	            String monitorKey = storage.getSmisPassword();
@@ -316,9 +337,9 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 	            	Host host = _dbClient.queryObject(Host.class, initiator.getHost());
 	                if (initiator.getProtocol().equals(HostInterface.Protocol.RBD.name())) {
 	                	_log.info(String.format("mapVolume: host %s pool %s volume %s", host.getHostName(), poolName, volumeName));    	
-	            		LinuxSystemCLI linuxClient = getLinuxClient(host);
-	                	String id = linuxClient.mapRBD(monitorAddress, monitorUser, monitorKey, poolName, volumeName);
-	                	exportMask.addVolume(volume.getId(), Integer.valueOf(id));
+	                	LinuxSystemCLI linuxClient = getLinuxClient(host);
+	                	String id = linuxClient.mapRBD(monitorAddress, monitorUser, monitorKey, poolName, volumeName, snapshotName);
+	                	exportMask.addVolume(object.getId(), Integer.valueOf(id));
 	                	_dbClient.updateAndReindexObject(exportMask);
 	                } else {
 	                	String msg = String.format("Unexpected initiator protocol %s, port %s, pool %s, volume %s",

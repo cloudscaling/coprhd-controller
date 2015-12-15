@@ -255,9 +255,9 @@ public class LinuxSystemCLI {
         return command.getResults();
     }
 
-    public String mapRBD(String monitors, String user, String key, String pool, String volume) {
-    	MapRBDCommand command = new MapRBDCommand();
-    	command.setVolume(monitors, user, key, pool, volume);
+    public String mapRBD(String monitors, String user, String key, String pool, String volume, String snapshot) {
+    	MapRBDCommand command = new MapRBDCommand(monitors, user, key);
+    	command.setVolume(pool, volume, snapshot);
         executeCommand(command);
         return command.getResults();
     }
