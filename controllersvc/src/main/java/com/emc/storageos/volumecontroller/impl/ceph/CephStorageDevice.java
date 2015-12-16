@@ -3,7 +3,6 @@ package com.emc.storageos.volumecontroller.impl.ceph;
 import static java.util.Arrays.asList;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,6 +30,7 @@ import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.db.client.model.TenantOrg;
 import com.emc.storageos.db.client.model.Volume;
+import com.emc.storageos.db.client.model.Volume.ReplicationState;
 import com.emc.storageos.db.client.util.NameGenerator;
 import com.emc.storageos.db.client.util.NullColumnValueGetter;
 import com.emc.storageos.db.exceptions.DatabaseException;
@@ -38,17 +38,17 @@ import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.exceptions.DeviceControllerException;
 import com.emc.storageos.svcs.errorhandling.model.ServiceCoded;
 import com.emc.storageos.svcs.errorhandling.model.ServiceError;
+import com.emc.storageos.volumecontroller.CloneOperations;
 import com.emc.storageos.volumecontroller.DefaultBlockStorageDevice;
 import com.emc.storageos.volumecontroller.SnapshotOperations;
 import com.emc.storageos.volumecontroller.TaskCompleter;
 import com.emc.storageos.volumecontroller.impl.ControllerUtils;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
-import com.emc.storageos.volumecontroller.impl.VolumeURIHLU;
+import com.emc.storageos.volumecontroller.impl.smis.ReplicationUtils;
 import com.emc.storageos.volumecontroller.impl.smis.SmisConstants;
 import com.emc.storageos.volumecontroller.impl.utils.ExportMaskUtils;
 import com.emc.storageos.volumecontroller.impl.utils.VirtualPoolCapabilityValuesWrapper;
 import com.iwave.ext.linux.LinuxSystemCLI;
-import com.iwave.ext.linux.command.rbd.MapRBDCommand;
 
 import com.google.common.collect.Lists;
 
@@ -59,7 +59,8 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 
     private DbClient _dbClient;
     private CephClientFactory _cephClientFactory;
-    private SnapshotOperations snapshotOperations;
+    private SnapshotOperations _snapshotOperations;
+    private CloneOperations _cloneOperations;
     private NameGenerator _nameGenerator;
 
     public void setDbClient(DbClient dbClient) {
@@ -71,7 +72,11 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     }
 
     public void setSnapshotOperations(SnapshotOperations snapshotOperations) {
-        this.snapshotOperations = snapshotOperations;
+        this._snapshotOperations = snapshotOperations;
+    }
+
+    public void setCloneOperations(CloneOperations cloneOperations) {
+        this._cloneOperations = cloneOperations;
     }
 
     public void setNameGenerator(NameGenerator nameGenerator) {
@@ -250,7 +255,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             super.doCreateSnapshot(storage, snapshotList, createInactive, readOnly, taskCompleter);
         } else {
             URI snapshot = blockSnapshots.get(0).getId();
-            snapshotOperations.createSingleVolumeSnapshot(storage, snapshot, createInactive,
+            _snapshotOperations.createSingleVolumeSnapshot(storage, snapshot, createInactive,
                     readOnly, taskCompleter);
         }
     }
@@ -262,10 +267,109 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         if (ControllerUtils.checkSnapshotsInConsistencyGroup(blockSnapshots, _dbClient, taskCompleter)) {
             super.doDeleteSnapshot(storage, snapshot, taskCompleter);
         } else {
-            snapshotOperations.deleteSingleVolumeSnapshot(storage, snapshot, taskCompleter);
+            _snapshotOperations.deleteSingleVolumeSnapshot(storage, snapshot, taskCompleter);
         }
     }
 
+    @Override
+    public void doCreateClone(StorageSystem storage, URI sourceVolume, URI cloneVolume, Boolean createInactive,
+            TaskCompleter taskCompleter) {    	
+        if (ControllerUtils.checkCloneConsistencyGroup(cloneVolume, _dbClient, taskCompleter)) {
+            completeTaskAsUnsupported(taskCompleter);
+        } else {
+            _cloneOperations.createSingleClone(storage, sourceVolume, cloneVolume, createInactive, taskCompleter);
+        }
+    }
+
+    @Override
+    public void doDetachClone(StorageSystem storage, URI cloneVolume, TaskCompleter taskCompleter) {
+        if (ControllerUtils.checkCloneConsistencyGroup(cloneVolume, _dbClient, taskCompleter)) {
+            completeTaskAsUnsupported(taskCompleter);
+        } else {
+            _cloneOperations.detachSingleClone(storage, cloneVolume, taskCompleter);
+        }
+    }
+    
+    @Override
+    public void doFractureClone(StorageSystem storageDevice, URI source, URI clone,
+            TaskCompleter taskCompleter) {
+        completeTaskAsUnsupported(taskCompleter);
+    }
+
+    @Override
+    public void doRestoreFromClone(StorageSystem storage, URI cloneVolume,
+            TaskCompleter taskCompleter) {
+        completeTaskAsUnsupported(taskCompleter);
+    }
+
+    @Override
+    public void doResyncClone(StorageSystem storage, URI cloneVolume,
+            TaskCompleter taskCompleter) {
+        completeTaskAsUnsupported(taskCompleter);
+    }
+
+    @Override
+    public void doCreateGroupClone(StorageSystem storageDevice, List<URI> clones,
+            Boolean createInactive, TaskCompleter taskCompleter) {
+        completeTaskAsUnsupported(taskCompleter);
+    }
+
+    @Override
+    public void doDetachGroupClone(StorageSystem storage, List<URI> cloneVolume,
+            TaskCompleter taskCompleter) {
+        completeTaskAsUnsupported(taskCompleter);
+    }
+
+    @Override
+    public void doRestoreFromGroupClone(StorageSystem storageSystem, List<URI> cloneVolume,
+            TaskCompleter taskCompleter) {
+        completeTaskAsUnsupported(taskCompleter);
+
+    }
+
+    @Override
+    public void doActivateGroupFullCopy(StorageSystem storageSystem,
+            List<URI> fullCopy, TaskCompleter completer) {
+        completeTaskAsUnsupported(completer);
+
+    }
+
+    @Override
+    public void doResyncGroupClone(StorageSystem storageDevice,
+            List<URI> clone, TaskCompleter completer) throws Exception {
+        completeTaskAsUnsupported(completer);
+    }
+
+    @Override
+    public Integer checkSyncProgress(URI storage, URI source, URI target) {
+        return null;
+    }
+
+    @Override
+    public void doWaitForSynchronized(Class<? extends BlockObject> clazz, StorageSystem storageObj, URI target, TaskCompleter completer) {
+        _log.info("Nothing to do here.  Ceph does not require a wait for synchronization");
+        completer.ready(_dbClient);
+    }
+
+    @Override
+    public void doWaitForGroupSynchronized(StorageSystem storageObj, List<URI> target, TaskCompleter completer)
+    {
+        _log.info("Nothing to do here.  Ceph does not require a wait for synchronization");
+        completer.ready(_dbClient);
+    }
+    
+    /**
+     * Method calls the completer with error message indicating that the caller's method is unsupported
+     * 
+     * @param completer [in] - TaskCompleter
+     */
+    private void completeTaskAsUnsupported(TaskCompleter completer) {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        String methodName = stackTrace[2].getMethodName();
+        ServiceCoded code = DeviceControllerErrors.ceph.operationIsUnsupported(methodName);
+        completer.error(_dbClient, code);
+    }
+    
     private CephClient getClient(StorageSystem storage) {
         String monitorHost = storage.getSmisProviderIP();
         String userName = storage.getSmisUserName();
@@ -318,7 +422,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 	        		snapshot = (BlockSnapshot)object;
 	        		volume = _dbClient.queryObject(Volume.class, snapshot.getParent());
 	        	} else {
-                	String msg = String.format("Unsupported block object type URI %", objectUri);
+                	String msg = String.format("Unsupported block object type URI %s", objectUri);
                     ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("mapVolumes", msg);
                     completer.error(_dbClient, code);
                     return;
