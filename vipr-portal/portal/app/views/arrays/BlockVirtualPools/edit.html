@@ -155,9 +155,11 @@
             <select-one v-disabled="locked" auto-default options="autoTierPolicyOptions" empty-option="none"></select-one>
           </control-group>
         </div>
-        <control-group v-field='vpool.multiVolumeConsistency'>
-          <boolean-checkbox v-disabled='locked'></boolean-checkbox>
-        </control-group>
+        <div ng-if="['${models.StorageSystemTypes.CEPH}'].indexOf(vpool.systemType) == -1">
+          <control-group v-field='vpool.multiVolumeConsistency'>
+            <boolean-checkbox v-disabled='locked'></boolean-checkbox>
+          </control-group>
+        </div>
 
         <control-group v-field='vpool.expandable'>
           <boolean-checkbox v-disabled='locked'></boolean-checkbox>
@@ -238,7 +240,7 @@
           <input-text></input-text>
         </control-group>
 
-        <div ng-if="vpool.systemType != '${models.StorageSystemTypes.SCALEIO}' && vpool.systemType != '${models.StorageSystemTypes.IBMXIV}' && vpool.systemType != '${models.StorageSystemTypes.VNXe}'">
+        <div ng-if="vpool.systemType != '${models.StorageSystemTypes.SCALEIO}' && vpool.systemType != '${models.StorageSystemTypes.IBMXIV}' && vpool.systemType != '${models.StorageSystemTypes.VNXe}' && vpool.systemType != '${models.StorageSystemTypes.CEPH}'">
           <control-group v-field='vpool.maxContinuousCopies'>
             <input-text ng-disabled="vpool.expandable"></input-text>
           </control-group>
