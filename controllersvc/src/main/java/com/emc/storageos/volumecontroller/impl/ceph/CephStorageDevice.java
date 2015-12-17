@@ -3,7 +3,6 @@ package com.emc.storageos.volumecontroller.impl.ceph;
 import static java.util.Arrays.asList;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -43,12 +42,10 @@ import com.emc.storageos.volumecontroller.SnapshotOperations;
 import com.emc.storageos.volumecontroller.TaskCompleter;
 import com.emc.storageos.volumecontroller.impl.ControllerUtils;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
-import com.emc.storageos.volumecontroller.impl.VolumeURIHLU;
 import com.emc.storageos.volumecontroller.impl.smis.SmisConstants;
 import com.emc.storageos.volumecontroller.impl.utils.ExportMaskUtils;
 import com.emc.storageos.volumecontroller.impl.utils.VirtualPoolCapabilityValuesWrapper;
 import com.iwave.ext.linux.LinuxSystemCLI;
-import com.iwave.ext.linux.command.rbd.MapRBDCommand;
 
 import com.google.common.collect.Lists;
 
@@ -266,6 +263,14 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         }
     }
 
+    @Override
+    public void doCreateConsistencyGroup(StorageSystem storage, URI consistencyGroup, TaskCompleter taskCompleter)
+            throws DeviceControllerException {
+        _log.error("Consistency groups are not supported for Ceph cluster");
+        ServiceCoded code = DeviceControllerErrors.ceph.operationIsUnsupported("doCreateConsistencyGroup");
+        taskCompleter.error(_dbClient, code);
+    }
+
     private CephClient getClient(StorageSystem storage) {
         String monitorHost = storage.getSmisProviderIP();
         String userName = storage.getSmisUserName();
@@ -408,4 +413,5 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             completer.error(_dbClient, code);
         }
     }
+
 }
