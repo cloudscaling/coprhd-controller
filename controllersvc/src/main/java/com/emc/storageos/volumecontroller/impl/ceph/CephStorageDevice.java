@@ -3,7 +3,6 @@ package com.emc.storageos.volumecontroller.impl.ceph;
 import static java.util.Arrays.asList;
 
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -46,8 +45,6 @@ import com.emc.storageos.volumecontroller.impl.smis.SmisConstants;
 import com.emc.storageos.volumecontroller.impl.utils.ExportMaskUtils;
 import com.emc.storageos.volumecontroller.impl.utils.VirtualPoolCapabilityValuesWrapper;
 import com.iwave.ext.linux.LinuxSystemCLI;
-
-import com.google.common.collect.Lists;
 
 
 public class CephStorageDevice extends DefaultBlockStorageDevice {
@@ -268,30 +265,17 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             TaskCompleter taskCompleter) throws DeviceControllerException {
         doExportRemoveInitiators(storage, exportMask, asList(initiator), targets, taskCompleter);
     }
-    
+
     @Override
     public void doCreateSnapshot(StorageSystem storage, List<URI> snapshotList, Boolean createInactive, Boolean readOnly,
             TaskCompleter taskCompleter) throws DeviceControllerException {
-        Iterator<BlockSnapshot> snapshots = _dbClient.queryIterativeObjects(BlockSnapshot.class, snapshotList);
-        List<BlockSnapshot> blockSnapshots = Lists.newArrayList(snapshots);
-        if (ControllerUtils.checkSnapshotsInConsistencyGroup(blockSnapshots, _dbClient, taskCompleter)) {
-            super.doCreateSnapshot(storage, snapshotList, createInactive, readOnly, taskCompleter);
-        } else {
-            URI snapshot = blockSnapshots.get(0).getId();
-            _snapshotOperations.createSingleVolumeSnapshot(storage, snapshot, createInactive,
-                    readOnly, taskCompleter);
-        }
+        _snapshotOperations.createSingleVolumeSnapshot(storage, snapshotList.get(0), createInactive,
+                readOnly, taskCompleter);
     }
 
     @Override
     public void doDeleteSnapshot(StorageSystem storage, URI snapshot, TaskCompleter taskCompleter) throws DeviceControllerException {
-        Iterator<BlockSnapshot> snapshots = _dbClient.queryIterativeObjects(BlockSnapshot.class, Arrays.asList(snapshot));
-        List<BlockSnapshot> blockSnapshots = Lists.newArrayList(snapshots);
-        if (ControllerUtils.checkSnapshotsInConsistencyGroup(blockSnapshots, _dbClient, taskCompleter)) {
-            super.doDeleteSnapshot(storage, snapshot, taskCompleter);
-        } else {
-            _snapshotOperations.deleteSingleVolumeSnapshot(storage, snapshot, taskCompleter);
-        }
+        _snapshotOperations.deleteSingleVolumeSnapshot(storage, snapshot, taskCompleter);
     }
 
     @Override
