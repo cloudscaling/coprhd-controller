@@ -326,7 +326,7 @@ BlockStorageProtocol.iSCSI=iSCSI
 BlockStorageProtocol.FC=FC
 BlockStorageProtocol.FCoE=FCoE
 BlockStorageProtocol.ScaleIO=ScaleIO
-BlockStorageProtocol.RBD=RBD
+BlockStorageProtocol.RBD=Ceph RBD
 
 FileStorageProtocol.NFS=NFS
 FileStorageProtocol.NFSv4=NFSv4
@@ -1864,7 +1864,7 @@ protocol.FC=Fibre Channel
 protocol.NFS=NFS
 protocol.CIFS=CIFS
 protocol.ScaleIO=ScaleIO
-protocol.RBD=RBD
+protocol.RBD=Ceph RBD
 
 SupportedDriveType.UNKNOWN=Unknown
 SupportedDriveType.NONE=None

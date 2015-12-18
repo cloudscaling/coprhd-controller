@@ -30,9 +30,7 @@ import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.db.client.model.TenantOrg;
 import com.emc.storageos.db.client.model.Volume;
-import com.emc.storageos.db.client.model.Volume.ReplicationState;
 import com.emc.storageos.db.client.util.NameGenerator;
-import com.emc.storageos.db.client.util.NullColumnValueGetter;
 import com.emc.storageos.db.exceptions.DatabaseException;
 import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.exceptions.DeviceControllerException;
@@ -44,7 +42,6 @@ import com.emc.storageos.volumecontroller.SnapshotOperations;
 import com.emc.storageos.volumecontroller.TaskCompleter;
 import com.emc.storageos.volumecontroller.impl.ControllerUtils;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
-import com.emc.storageos.volumecontroller.impl.smis.ReplicationUtils;
 import com.emc.storageos.volumecontroller.impl.smis.SmisConstants;
 import com.emc.storageos.volumecontroller.impl.utils.ExportMaskUtils;
 import com.emc.storageos.volumecontroller.impl.utils.VirtualPoolCapabilityValuesWrapper;
@@ -282,6 +279,13 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     }
 
     @Override
+    public void doCreateConsistencyGroup(StorageSystem storage, URI consistencyGroup, TaskCompleter taskCompleter)
+            throws DeviceControllerException {
+        _log.error("Consistency groups are not supported for Ceph cluster");
+        completeTaskAsUnsupported(taskCompleter);
+    }
+
+    @Override
     public void doDetachClone(StorageSystem storage, URI cloneVolume, TaskCompleter taskCompleter) {
         if (ControllerUtils.checkCloneConsistencyGroup(cloneVolume, _dbClient, taskCompleter)) {
             completeTaskAsUnsupported(taskCompleter);
@@ -369,7 +373,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         ServiceCoded code = DeviceControllerErrors.ceph.operationIsUnsupported(methodName);
         completer.error(_dbClient, code);
     }
-    
+
     private CephClient getClient(StorageSystem storage) {
         String monitorHost = storage.getSmisProviderIP();
         String userName = storage.getSmisUserName();
@@ -512,4 +516,5 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             completer.error(_dbClient, code);
         }
     }
+
 }
