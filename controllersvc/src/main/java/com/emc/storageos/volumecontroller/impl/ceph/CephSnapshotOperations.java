@@ -68,7 +68,6 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
             cephClient.createSnap(pool.getPoolName(), volume.getNativeId(), label);
 
             blockSnapshot.setNativeId(label);
-            blockSnapshot.setWWN(label);
             blockSnapshot.setDeviceLabel(blockSnapshot.getLabel());
             blockSnapshot.setIsSyncActive(true);
             _dbClient.updateObject(blockSnapshot);

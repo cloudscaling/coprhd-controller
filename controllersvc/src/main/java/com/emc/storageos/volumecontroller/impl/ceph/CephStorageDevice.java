@@ -99,7 +99,6 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
                         '-', SmisConstants.MAX_VOLUME_NAME_LENGTH);
                 cephClient.createImage(storagePool.getPoolName(), label, volume.getCapacity()); // / 1073741824L);
                 volume.setNativeId(label);
-                volume.setWWN(label);
                 volume.setNativeGuid(NativeGUIDGenerator.generateNativeGuid(_dbClient, volume));
                 volume.setDeviceLabel(volume.getLabel());
                 volume.setProvisionedCapacity(volume.getCapacity());

@@ -94,7 +94,6 @@ public class CephCloneOperations implements CloneOperations {
             	snapshotId = sourceSnapshot.getLabel();
             	cephClient.createSnap(poolId, parentVolumeId, snapshotId);
             	sourceSnapshot.setNativeId(snapshotId);
-            	sourceSnapshot.setWWN(snapshotId);
             	sourceSnapshot.setDeviceLabel(snapshotId);
             	sourceSnapshot.setIsSyncActive(true);
             	sourceSnapshot.setParent(new NamedURI(parentVolume.getId(), parentVolume.getLabel()));
