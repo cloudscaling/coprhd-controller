@@ -51,7 +51,8 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
     private static final String PORT_GROUP = "Ceph Port Group";
 
     static {
-        COPY_TYPES.add(CopyTypes.ASYNC.name());
+    	 // UNSYNC_ASSOC -> snapshot, UNSYNC_UNASSOC -> clone
+        COPY_TYPES.add(CopyTypes.UNSYNC_ASSOC.name());
         COPY_TYPES.add(CopyTypes.UNSYNC_UNASSOC.name());
     }
 
