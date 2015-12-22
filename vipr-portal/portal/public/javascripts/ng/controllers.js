@@ -813,6 +813,10 @@ angular.module("portalApp").controller("storageProviderCtrl", function($scope) {
     	return containsOption($scope.smisProvider.interfaceType, $scope.mdmonlyProviderList);
     }
 
+    $scope.isKeyPasswordProviderList = function() {
+    	return containsOption($scope.smisProvider.interfaceType, $scope.keyPasswordProviderList);
+    }
+    
     $scope.isElementManagerType = function() {
         return containsOption($scope.smisProvider.interfaceType, $scope.elementManagerStorageProviderList);
     }

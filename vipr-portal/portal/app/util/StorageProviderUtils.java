@@ -71,18 +71,19 @@ public class StorageProviderUtils {
 
     public static Task<StorageProviderRestRep> create(String name, String ipAddress, Integer portNumber, String userName,
             String password, Boolean useSSL, String interfaceType, String secondaryUsername, String secondaryPassword,
-            String elementManagerURL) {
+            String elementManagerURL, String keyringKey) {
         StorageProviderCreateParam update = new StorageProviderCreateParam();
         update.setName(name);
         update.setIpAddress(ipAddress);
         update.setPortNumber(portNumber);
         update.setUserName(userName);        
-        update.setPassword(password);        
+        update.setPassword(StringUtils.defaultIfEmpty(password, null));        
         update.setUseSSL(useSSL == null ? false : useSSL);
         update.setInterfaceType(interfaceType);
         update.setSecondaryUsername(StringUtils.defaultIfEmpty(secondaryUsername, null));
         update.setSecondaryPassword(StringUtils.defaultIfEmpty(secondaryPassword, null));
         update.setElementManagerURL(StringUtils.defaultIfEmpty(elementManagerURL, null));
+        update.setKeyringKey(StringUtils.defaultIfEmpty(keyringKey, null));
         if (StorageProviderTypes.isScaleIOApi(interfaceType)) {
         	update.setUserName(secondaryUsername);
         	update.setPassword(secondaryPassword);
@@ -94,7 +95,7 @@ public class StorageProviderUtils {
 
     public static StorageProviderRestRep update(URI id, String name, String ipAddress, Integer portNumber,
             String userName, String password, Boolean useSSL, String interfaceType, String secondaryUsername,
-            String secondaryPassword, String elementManagerURL) {
+            String secondaryPassword, String elementManagerURL, String keyringKey) {
         StorageProviderUpdateParam update = new StorageProviderUpdateParam();
         update.setName(name);
         update.setIpAddress(ipAddress);
@@ -106,6 +107,7 @@ public class StorageProviderUtils {
         update.setSecondaryUsername(StringUtils.defaultIfEmpty(secondaryUsername, null));
         update.setSecondaryPassword(StringUtils.defaultIfEmpty(secondaryPassword, null));
         update.setElementManagerURL(StringUtils.defaultIfEmpty(elementManagerURL, null));
+        update.setKeyringKey(StringUtils.defaultIfEmpty(keyringKey, null));
         if (StorageProviderTypes.isScaleIOApi(interfaceType)) {
         	update.setUserName(secondaryUsername);
         	update.setPassword(secondaryPassword);

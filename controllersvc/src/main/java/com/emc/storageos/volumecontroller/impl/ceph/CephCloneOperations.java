@@ -263,10 +263,7 @@ public class CephCloneOperations implements CloneOperations {
     }
 
     private CephClient getClient(StorageSystem storage) {
-        String monitorHost = storage.getSmisProviderIP();
-        String userName = storage.getSmisUserName();
-        String userKey = storage.getSmisPassword();
-        return _cephClientFactory.getClient(monitorHost, userName, userKey);
+        return CephUtils.connectToCeph(_cephClientFactory, storage);
     }
 
     private BlockSnapshot prepareInternalSnapshotForVolume(String name, Volume volume) {

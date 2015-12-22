@@ -41,6 +41,7 @@ import com.emc.storageos.plugins.StorageSystemViewObject;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
 import com.emc.storageos.volumecontroller.impl.StoragePoolAssociationHelper;
 import com.emc.storageos.volumecontroller.impl.StoragePortAssociationHelper;
+import com.emc.storageos.volumecontroller.impl.ceph.CephUtils;
 import com.emc.storageos.volumecontroller.impl.utils.DiscoveryUtils;
 
 public class CephCommunicationInterface extends ExtendedCommunicationInterfaceImpl {
@@ -71,14 +72,11 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
     public void scan(AccessProfile accessProfile) throws BaseCollectionException {
         _log.info("Starting scan of Ceph StorageProvider. IP={}", accessProfile.getIpAddress());
         StorageProvider provider = _dbClient.queryObject(StorageProvider.class, accessProfile.getSystemId());
-        String monitorHost = accessProfile.getIpAddress();
-        String userName = accessProfile.getUserName();
-        String userKey = accessProfile.getPassword();
         StorageProvider.ConnectionStatus status = StorageProvider.ConnectionStatus.NOTCONNECTED;
         Map<String, StorageSystemViewObject> storageSystemsCache = accessProfile.getCache();
         String cephType = StorageSystem.Type.ceph.name();
         try {
-            CephClient cephClient = _cephClientFactory.getClient(monitorHost, userName, userKey);
+            CephClient cephClient = CephUtils.connectToCeph(_cephClientFactory, accessProfile);
             ClusterInfo clusterInfo = cephClient.getClusterInfo();
             String systemNativeGUID = NativeGUIDGenerator.generateNativeGuid(cephType, clusterInfo.getFsid());
             StorageSystemViewObject viewObject = storageSystemsCache.get(systemNativeGUID);
@@ -107,15 +105,13 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
     public void discover(AccessProfile accessProfile) throws BaseCollectionException {
         _log.info("Starting discovery of Ceph StorageProvider. IP={}", accessProfile.getIpAddress());
         StorageSystem system = _dbClient.queryObject(StorageSystem.class, accessProfile.getSystemId());
-        String monitorHost = accessProfile.getIpAddress();
-        String userName = accessProfile.getUserName();
-        String userKey = accessProfile.getPassword();
         List<StoragePool> newPools = new ArrayList<StoragePool>();
         List<StoragePool> updatePools = new ArrayList<StoragePool>();
         List<StoragePool> allPools = new ArrayList<StoragePool>();
         String statusMsg = null;
         try {
-            CephClient cephClient = _cephClientFactory.getClient(monitorHost, userName, userKey);
+            CephClient cephClient = CephUtils.connectToCeph(_cephClientFactory, accessProfile);
+            system.setReachableStatus(true);
             List<PoolInfo> pools = cephClient.getPools();
             for (PoolInfo pool: pools) {
                 String poolNativeGUID = NativeGUIDGenerator.generateNativeGuid(
@@ -129,7 +125,7 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                     storagePool.setNativeId(Long.toString(pool.getId()));
                     storagePool.setNativeGuid(poolNativeGUID);
                     storagePool.setPoolName(pool.getName());
-//                    storagePool.setLabel(pool.getName());
+                    storagePool.setLabel(pool.getName());
 
                     storagePool.setStorageDevice(system.getId());
                     storagePool.setCompatibilityStatus(CompatibilityStatus.COMPATIBLE.name());
@@ -147,7 +143,7 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                     storagePool.setMaximumThinVolumeSize(10737418240L); // ???
                     storagePool.setFreeCapacity(10737418240L); // ???
                     storagePool.setTotalCapacity(10737418240L); // ???
-//                    storagePool.setInactive(false); why???
+                    storagePool.setInactive(false);
                     newPools.add(storagePool);
                 } else if (storagePools.size() == 1) {
                     storagePool = storagePools.get(0);
@@ -174,6 +170,7 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                 storageAdapter.setId(URIUtil.createId(StorageHADomain.class));
                 storageAdapter.setStorageDeviceURI(system.getId());
                 storageAdapter.setNativeGuid(adapterNativeGUID);
+                String monitorHost = accessProfile.getIpAddress();
                 storageAdapter.setAdapterName(monitorHost);
                 storageAdapter.setName(monitorHost);
                 storageAdapter.setLabel(monitorHost);
@@ -181,7 +178,7 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                 storageAdapter.setNumberofPorts("1");
                 storageAdapter.setAdapterType(HADomainType.FRONTEND.name());
                 storageAdapter.setProtocol(Block.RBD.name());
-//                storageAdapter.setInactive(false); why???
+                storageAdapter.setInactive(false);
                 _dbClient.createObject(storageAdapter);
             } else { 
                 storageAdapter = storageAdapters.get(0);
@@ -191,8 +188,7 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                 }
             }
 
-            String portNativeGUID = NativeGUIDGenerator.generateNativeGuid(
-                    system, "-", NativeGUIDGenerator.PORT); // ???
+            String portNativeGUID = NativeGUIDGenerator.generateNativeGuid(system, "-", NativeGUIDGenerator.PORT); // ???
             List<StoragePort> storagePorts = CustomQueryUtility.queryActiveResourcesByAltId(
                     _dbClient, StoragePort.class, "nativeGuid", portNativeGUID);
             StoragePort storagePort = null;
@@ -214,7 +210,8 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                 storagePort.setCompatibilityStatus(CompatibilityStatus.COMPATIBLE.name());
                 storagePort.setDiscoveryStatus(DiscoveryStatus.VISIBLE.name());
                 storagePort.setRegistrationStatus(RegistrationStatus.REGISTERED.toString());
-//                storagePort.setInactive(false); why???
+                storagePort.setInactive(false);
+                
                 _dbClient.createObject(storagePort);
             } else {
                 storagePort = storagePorts.get(0);

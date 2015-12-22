@@ -55,6 +55,10 @@ public class AccessProfile {
      */
     private String _password;
     /**
+     * Keyring key
+     */
+    private String _keyringKey;
+    /**
      * SSL Enable
      */
     private String _sslEnable;
@@ -193,10 +197,20 @@ public class AccessProfile {
      * Setter for password credential for AccessProfile
      * 
      * @param password
-     *            : value of userName
+     *            : value of password
      */
     public void setPassword(String password) {
         _password = password;
+    }
+
+    /**
+     * Setter for keyring key for AccessProfile
+     * 
+     * @param keyringKey
+     *            : value of userName
+     */
+    public void setKeyringKey(String keyringKey) {
+    	_keyringKey = keyringKey;
     }
 
     /**
@@ -262,6 +276,15 @@ public class AccessProfile {
     }
 
     /**
+     * Getter for keyring key
+     * 
+     * @return : value of keyring key
+     */
+    public String getKeyringKey() {
+        return _keyringKey;
+    }
+
+    /**
      * Getter for provider_port
      * 
      * @return : value of provider_port
@@ -298,6 +321,8 @@ public class AccessProfile {
         profile.append(" UserName : ");
         profile.append(getUserName());
         profile.append(" Password : ");
+        profile.append("*******"); // This was getting into the logging, so obfuscate
+        profile.append(" KeyringKey : ");
         profile.append("*******"); // This was getting into the logging, so obfuscate
         profile.append(" InteropNamespace : ");
         profile.append(getInteropNamespace());

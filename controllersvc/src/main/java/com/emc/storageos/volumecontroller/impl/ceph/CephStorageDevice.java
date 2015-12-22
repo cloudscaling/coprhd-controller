@@ -109,9 +109,6 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             taskCompleter.ready(_dbClient);
         } catch (Exception e) {
             _log.error("Error while creating volumes", e);
-            for (Volume volume : volumes) {
-                volume.setInactive(true);
-            }
             _dbClient.updateObject(volumes);
             ServiceError error = DeviceControllerErrors.ceph.operationFailed("doCreateVolumes", e.getMessage());
             taskCompleter.error(_dbClient, error);
@@ -126,7 +123,11 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             StoragePool pool = _dbClient.queryObject(StoragePool.class, poolUri);
             CephClient cephClient = getClient(storage);
             for (Volume volume : volumes) {
-                cephClient.deleteImage(pool.getPoolName(), volume.getNativeId());
+            	if (volume.getNativeId() != null && !volume.getNativeId().isEmpty()) {
+                	cephClient.deleteImage(pool.getPoolName(), volume.getNativeId());
+            	} else {
+                    _log.info("Volume {} was not created completely, so skip real deletion and just delete it from DB", volume.getLabel());            		
+            	}
                 volume.setInactive(true);
                 _dbClient.updateObject(volume);
             }
@@ -374,10 +375,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     }
 
     private CephClient getClient(StorageSystem storage) {
-        String monitorHost = storage.getSmisProviderIP();
-        String userName = storage.getSmisUserName();
-        String userKey = storage.getSmisPassword();
-        return _cephClientFactory.getClient(monitorHost, userName, userKey);
+        return CephUtils.connectToCeph(_cephClientFactory, storage);
     }
     
     private LinuxSystemCLI getLinuxClient(Host host) {
@@ -439,7 +437,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 	            }	            
 	            String monitorAddress = storage.getSmisProviderIP();
 	            String monitorUser = storage.getSmisUserName();
-	            String monitorKey = storage.getSmisPassword();
+	            String monitorKey = storage.getKeyringKey();
 	            for (Initiator initiator : initiators) {
 	            	Host host = _dbClient.queryObject(Host.class, initiator.getHost());
 	                if (initiator.getProtocol().equals(HostInterface.Protocol.RBD.name())) {

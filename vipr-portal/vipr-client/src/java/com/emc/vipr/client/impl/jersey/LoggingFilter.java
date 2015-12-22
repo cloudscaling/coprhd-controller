@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
  */
 public class LoggingFilter extends ClientFilter {
     private static final Pattern PASSWORD_PATTERN = Pattern.compile(
-            "(<[\\w\\-\\_]*password\\>|password\\<\\/key\\>\\s*\\<value\\>|<secret_key[\\w\\-\\_]*\\>)(.*?)(<\\/|$)",
+            "(<[\\w\\-\\_]*password\\>|password\\<\\/key\\>\\s*\\<value\\>|<secret_key[\\w\\-\\_]*\\>|<keyring_key>)(.*?)(<\\/|$)",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final String PASSWORD_REPLACEMENT = "$1*****$3";// NOSONAR
                                                                    // ("Suppressing Sonar violation of variable password, as this field  is not holding sensitive data")

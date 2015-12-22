@@ -65,7 +65,11 @@ public class StorageProviderTypes {
     public static boolean isScaleIOApi(String type) {
     	return SCALEIOAPI.equals(type);
     }
-    
+
+    public static boolean isCeph(String type) {
+    	return CEPH.equals(type);
+    }
+
     public static String fromStorageArrayType(String storageArrayType) {
         return fromStorageArrayTypeMap.get(storageArrayType);
     }

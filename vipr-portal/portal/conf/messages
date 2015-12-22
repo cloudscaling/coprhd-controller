@@ -1672,6 +1672,7 @@ smisProvider.secondaryPassword=MDM Password
 smisProvider.secondaryPasswordConfirm=Confirm MDM Password
 smisProvider.secondaryPassword.confirmPassword.not.match=User MDM Password and Confirm MDM Password do not match.
 smisProvider.elementManagerURL=Element Manager URL
+smisProvider.keyringKey=Keyring key
 
 storageProvider.interfaceType.hicommand=Hitachi HiCommand
 storageProvider.interfaceType.smis=SMI-S for EMC VMAX, VNX Block
@@ -1747,6 +1748,7 @@ storageArray.secondaryPassword=MDM Password
 storageArray.secondaryPasswordConfirm=Confirm MDM Password
 storageArray.secondaryPassword.confirmPassword.not.match=User MDM Password and Confirm MDM Password do not match.
 storageArray.elementManagerURL=Element Manager URL
+storageArray.keyringKey=Keyring key
 #
 # onboard SMI-S Provider
 #

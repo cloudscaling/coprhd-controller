@@ -36,6 +36,7 @@ public class StorageProviderRestRep extends DataObjectRestRep {
     private String interface_type;
     private String secondaryUsername;
     private String elementManagerURL;
+    private String keyringKey;
 
     public StorageProviderRestRep() {
     }
@@ -334,4 +335,18 @@ public class StorageProviderRestRep extends DataObjectRestRep {
     public void setElementManagerURL(String elementManagerURL) {
         this.elementManagerURL = elementManagerURL;
     }
+    
+    /**
+     * Keyring key - token to access to storage provider.
+     * 
+     * @valid none
+     */
+    @XmlElement(required = false, name = "keyring_key")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
+    }    
 }

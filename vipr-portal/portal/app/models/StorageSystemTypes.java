@@ -68,10 +68,11 @@ public class StorageSystemTypes {
     public static final StringOption[] NON_SMIS_OPTIONS = StringOption.options(NON_SMIS_TYPES, OPTION_PREFIX);
     public static final StringOption[] SSL_DEFAULT_OPTIONS = StringOption.options(new String[] { VNX_BLOCK, VMAX, SCALEIOAPI, VPLEX, VNX_FILE, VNXe,
             IBMXIV }, OPTION_PREFIX);
-    public static final StringOption[] NON_SSL_OPTIONS = StringOption.options(new String[] { SCALEIO, XTREMIO });
+    public static final StringOption[] NON_SSL_OPTIONS = StringOption.options(new String[] { SCALEIO, XTREMIO, CEPH });
     public static final StringOption[] MDM_DEFAULT_OPTIONS = StringOption.options(new String[] { SCALEIO, SCALEIOAPI });
     public static final StringOption[] MDM_ONLY_OPTIONS = StringOption.options(new String[] {SCALEIOAPI});
     public static final StringOption[] ELEMENT_MANAGER_OPTIONS = StringOption.options(new String[] { SCALEIO });
+    public static final StringOption[] KEY_PASSWORD_OPTIONS = StringOption.options(new String[] {CEPH});
 
     public static boolean isNone(String type) {
         return NONE.equals(type);
@@ -111,6 +112,10 @@ public class StorageSystemTypes {
     
     public static boolean isScaleIOApi(String type) {
     	return SCALEIOAPI.equals(type);
+    }
+
+    public static boolean isCeph(String type) {
+    	return CEPH.equals(type);
     }
 
     public static boolean isXtremIO(String type) {

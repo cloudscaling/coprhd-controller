@@ -56,6 +56,9 @@ public class StorageSystem extends DiscoveredSystemObject {
 
     // SMI-S password.
     private String _smisPassword;
+    
+    // SMI-S keyring key
+    private String _keyringKey;
 
     // SMI-S flag indicates whether or not to use SSL protocol.
     private Boolean _smisUseSSL;
@@ -256,6 +259,17 @@ public class StorageSystem extends DiscoveredSystemObject {
     public void setPassword(final String password) {
         this._password = password;
         setChanged("password");
+    }
+
+    @Encrypt
+    @Name("keyringKey")
+    public String getKeyringKey() {
+        return _keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this._keyringKey = keyringKey;
+        setChanged("keyringKey");
     }
 
     @RelationIndex(cf = "RelationIndex", type = VirtualArray.class)

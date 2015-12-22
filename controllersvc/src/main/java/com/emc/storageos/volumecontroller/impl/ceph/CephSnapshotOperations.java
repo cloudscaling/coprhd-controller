@@ -30,6 +30,10 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
     private CephClientFactory _cephClientFactory;
     private NameGenerator _nameGenerator;
 
+    private CephClient getClient(StorageSystem storage) {
+        return CephUtils.connectToCeph(_cephClientFactory, storage);    	
+    }
+    
     public void setDbClient(DbClient dbClient) {
         _dbClient = dbClient;
     }
@@ -45,11 +49,8 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
     @Override
     public void createSingleVolumeSnapshot(StorageSystem storage, URI snapshot, Boolean createInactive, Boolean readOnly,
             TaskCompleter taskCompleter) throws DeviceControllerException {
-        String monitorHost = storage.getSmisProviderIP();
-        String userName = storage.getSmisUserName();
-        String userKey = storage.getSmisPassword();
         try {
-            CephClient cephClient = _cephClientFactory.getClient(monitorHost, userName, userKey);
+            CephClient cephClient = getClient(storage);
             BlockSnapshot blockSnapshot = _dbClient.queryObject(BlockSnapshot.class, snapshot);
             Volume volume = _dbClient.queryObject(Volume.class, blockSnapshot.getParent().getURI());
             StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());
@@ -82,11 +83,8 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
     @Override
     public void deleteSingleVolumeSnapshot(StorageSystem storage, URI snapshot, TaskCompleter taskCompleter)
             throws DeviceControllerException {
-        String monitorHost = storage.getSmisProviderIP();
-        String userName = storage.getSmisUserName();
-        String userKey = storage.getSmisPassword();
         try {
-            CephClient cephClient = _cephClientFactory.getClient(monitorHost, userName, userKey);
+            CephClient cephClient = getClient(storage);
             BlockSnapshot blockSnapshot = _dbClient.queryObject(BlockSnapshot.class, snapshot);
             Volume volume = _dbClient.queryObject(Volume.class, blockSnapshot.getParent().getURI());
             StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());

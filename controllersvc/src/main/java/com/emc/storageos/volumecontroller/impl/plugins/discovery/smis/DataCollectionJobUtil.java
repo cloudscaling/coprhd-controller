@@ -360,7 +360,7 @@ public class DataCollectionJobUtil {
         accessProfile.setSystemClazz(providerInfo.getClass());
         accessProfile.setIpAddress(providerInfo.getIPAddress());
         accessProfile.setUserName(providerInfo.getUserName());
-        accessProfile.setPassword(providerInfo.getPassword());
+        accessProfile.setKeyringKey(providerInfo.getKeyringKey());
         accessProfile.setSystemType("ceph");
     }
     
@@ -558,7 +558,7 @@ public class DataCollectionJobUtil {
             accessProfile.setIpAddress(storageDevice.getSmisProviderIP());
             accessProfile.setUserName(storageDevice.getSmisUserName());
             accessProfile.setserialID(storageDevice.getSerialNumber());
-            accessProfile.setPassword(storageDevice.getSmisPassword());
+            accessProfile.setKeyringKey(storageDevice.getKeyringKey());
             accessProfile.setLastSampleTime(0L);
         } else {
             throw new RuntimeException("populateAccessProfile: Device type unknown : "
@@ -850,6 +850,7 @@ public class DataCollectionJobUtil {
         system.setSmisProviderIP(provider.getIPAddress());
         system.setSmisUserName(provider.getUserName());
         system.setSmisUseSSL(provider.getUseSSL());
+        system.setKeyringKey(provider.getKeyringKey());
         updateStorageSystemsInProvider(provider, providersToUpdate, system);
         _logger.debug("Exiting {}", Thread.currentThread().getStackTrace()[1].getMethodName());
     }
@@ -988,6 +989,7 @@ public class DataCollectionJobUtil {
                     storageSystemInDb.setSmisUserName(provider.getUserName());
                     storageSystemInDb.setSmisPassword(provider.getPassword());
                     storageSystemInDb.setSmisUseSSL(provider.getUseSSL());
+                    storageSystemInDb.setKeyringKey(provider.getKeyringKey());
                 }
             }
         }
@@ -1026,6 +1028,7 @@ public class DataCollectionJobUtil {
             storageSystemInDb.setSmisPortNumber(0);
             storageSystemInDb.setSmisProviderIP("");
             storageSystemInDb.setSmisUserName("");
+            storageSystemInDb.setKeyringKey("");
         }
     }
 

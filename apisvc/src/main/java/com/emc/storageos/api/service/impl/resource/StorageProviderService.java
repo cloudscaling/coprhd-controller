@@ -210,11 +210,15 @@ public class StorageProviderService extends TaskResourceService {
 
         ArgValidator.checkFieldNotEmpty(param.getIpAddress(), "ip_address");
         ArgValidator.checkFieldNotNull(param.getPortNumber(), "port_number");
-        ArgValidator.checkFieldNotEmpty(param.getUserName(), "user_name");
-        ArgValidator.checkFieldNotEmpty(param.getPassword(), "password");
-        ArgValidator.checkFieldRange(param.getPortNumber(), 1, 65535, "port_number");
         ArgValidator.checkFieldValueFromEnum(param.getInterfaceType(), "interface_type",
                 StorageProvider.InterfaceType.class);
+        ArgValidator.checkFieldNotEmpty(param.getUserName(), "user_name");
+        if (!Type.isCeph(getSystemTypeByInterface(param.getInterfaceType()))) {
+        	ArgValidator.checkFieldNotEmpty(param.getPassword(), "password");
+        } else {
+        	ArgValidator.checkFieldNotEmpty(param.getKeyringKey(), "keyring_key");        	
+        }
+        ArgValidator.checkFieldRange(param.getPortNumber(), 1, 65535, "port_number");
         String providerKey = param.getIpAddress() + "-" + param.getPortNumber();
         List<StorageProvider> providers = CustomQueryUtility.getActiveStorageProvidersByProviderId(_dbClient, providerKey);
         if (providers != null && !providers.isEmpty()) {
@@ -241,6 +245,8 @@ public class StorageProviderService extends TaskResourceService {
         provider.setSecondaryUsername(param.getSecondaryUsername());
         provider.setSecondaryPassword(param.getSecondaryPassword());
         provider.setElementManagerURL(param.getElementManagerURL());
+        provider.setKeyringKey(param.getKeyringKey());
+        
         if (param.getSioCLI() != null) {
             // TODO: Validate the input?
             provider.addKey(StorageProvider.GlobalKeys.SIO_CLI.name(), param.getSioCLI());
@@ -292,8 +298,8 @@ public class StorageProviderService extends TaskResourceService {
             return StorageSystem.Type.openstack;
         } else if (StorageProvider.InterfaceType.ibmxiv.name().equalsIgnoreCase(interfaceType)) {
             return StorageSystem.Type.ibmxiv;
-        /*} else if (StorageProvider.InterfaceType.ceph.name().equalsIgnoreCase(interfaceType)) {
-            return StorageSystem.Type.ceph;*/
+        } else if (StorageProvider.InterfaceType.ceph.name().equalsIgnoreCase(interfaceType)) {
+            return StorageSystem.Type.ceph;
         }
         return null;
     }
@@ -458,6 +464,9 @@ public class StorageProviderService extends TaskResourceService {
             }
             if (param.getElementManagerURL() != null) {
                 storageProvider.setElementManagerURL(param.getElementManagerURL());
+            }
+            if (param.getKeyringKey() != null) {
+            	storageProvider.setKeyringKey(param.getKeyringKey());            	
             }
 
             _dbClient.persistObject(storageProvider);

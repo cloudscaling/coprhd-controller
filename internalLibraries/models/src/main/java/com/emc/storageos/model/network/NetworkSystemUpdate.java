@@ -28,6 +28,7 @@ public class NetworkSystemUpdate {
     private String smisUserName;
     private String smisPassword;
     private Boolean smisUseSsl;
+    private String keyringKey;
 
     public NetworkSystemUpdate() {
     }
@@ -198,5 +199,21 @@ public class NetworkSystemUpdate {
     public void setSmisUseSsl(Boolean smisUseSsl) {
         this.smisUseSsl = smisUseSsl;
     }
+    
+    /**
+     * Keyring key to connect to SMIS Provider
+     * This field is applicable for storage systems of type 'ceph'.
+     * It is ignored for other storage system types and can be null.
+     * 
+     * @valid none
+     */
+    @XmlElement(name = "keyring_key")
+    @JsonProperty("keyring_key")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
 
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
+    }
 }

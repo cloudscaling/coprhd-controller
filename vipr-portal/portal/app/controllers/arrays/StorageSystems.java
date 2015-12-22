@@ -120,6 +120,7 @@ public class StorageSystems extends ViprResourceController {
         renderArgs.put("vnxfileStorageSystemType", StorageSystemTypes.VNX_FILE);
         renderArgs.put("scaleIOStorageSystemType", StorageSystemTypes.SCALEIO);
         renderArgs.put("scaleIOApiStorageSystemType", StorageSystemTypes.SCALEIOAPI);
+        renderArgs.put("cephStorageSystemType", StorageSystemTypes.CEPH);
     }
 
     public static void list() {
@@ -716,6 +717,8 @@ public class StorageSystems extends ViprResourceController {
         public String secondaryPasswordConfirm = "";
 
         public String elementManagerURL;
+        
+        public String keyringKey;
 
         public boolean useSSL;
 
@@ -820,6 +823,11 @@ public class StorageSystems extends ViprResourceController {
             if (isScaleIOApi()) {
             	storageArray.setPassword(secondaryPassword);
             }
+            
+            if (isCeph()) {
+            	storageArray.setKeyringKey(StringUtils.trimToNull(keyringKey));
+                storageArray.setSmisUserName(StringUtils.trimToNull(smisProviderUserName));
+            }
 
             return StorageSystemUtils.update(id, storageArray);
         }
@@ -861,6 +869,7 @@ public class StorageSystems extends ViprResourceController {
             storageProviderForm.secondaryUsername = this.secondaryUsername;
             storageProviderForm.secondaryPassword = this.secondaryPassword;
             storageProviderForm.elementManagerURL = this.elementManagerURL;
+            storageProviderForm.keyringKey = this.keyringKey;
 
             return storageProviderForm.create();
         }
@@ -887,8 +896,11 @@ public class StorageSystems extends ViprResourceController {
                 Validation.required(fieldName + ".smisProviderPortNumber", this.smisProviderPortNumber);
             }
 
-            if (isNew()) { 
-            	if (isScaleIOApi()) {
+            if (isNew()) {
+            	if (isCeph()) {
+            		Validation.required(fieldName + ".userName", this.userName);
+            		Validation.required(fieldName + ".keyringKey", this.keyringKey);
+            	} else if (isScaleIOApi()) {
             		Validation.required(fieldName + ".secondaryUsername", this.secondaryUsername);
             		Validation.required(fieldName + ".secondaryPassword", this.secondaryPassword);
             		Validation.required(fieldName + ".secondaryPasswordConfirm", this.secondaryPasswordConfirm);
@@ -951,6 +963,10 @@ public class StorageSystems extends ViprResourceController {
         
         private boolean isScaleIOApi() {
         	return StorageSystemTypes.isScaleIOApi(type);
+        }
+
+        private boolean isCeph() {
+        	return StorageSystemTypes.isCeph(type);
         }
     }
 

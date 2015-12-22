@@ -508,7 +508,8 @@ public class StorageSystemService extends TaskResourceService {
             // this check is to inform the user that he/she can not update fields other than name and max_resources.
             if (param.getIpAddress() != null || param.getPortNumber() != null || param.getUserName() != null ||
                     param.getPassword() != null || param.getSmisProviderIP() != null || param.getSmisPortNumber() != null ||
-                    param.getSmisUserName() != null || param.getSmisPassword() != null || param.getSmisUseSSL() != null) {
+                    param.getSmisUserName() != null || param.getSmisPassword() != null || param.getSmisUseSSL() != null || 
+                    param.getKeyringKey() != null) {
                 throw APIException.badRequests.onlyNameAndMaxResourceCanBeUpdatedForSystemWithType(systemType.name());
             }
             _dbClient.persistObject(system);
@@ -579,6 +580,7 @@ public class StorageSystemService extends TaskResourceService {
         system.setSmisUserName(param.getSmisUserName());
         system.setSmisPassword(param.getSmisPassword());
         system.setSmisUseSSL(param.getSmisUseSSL());
+        system.setKeyringKey(param.getKeyringKey());
 
         _dbClient.createObject(system);
 
@@ -608,6 +610,7 @@ public class StorageSystemService extends TaskResourceService {
         system.setSmisPortNumber(param.getSmisPortNumber());
         system.setSmisUserName(param.getSmisUserName());
         system.setSmisPassword(param.getSmisPassword());
+        system.setKeyringKey(param.getKeyringKey());
 
         _dbClient.persistObject(system);
     }

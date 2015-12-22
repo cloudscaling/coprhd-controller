@@ -71,6 +71,10 @@ public class DiscoveredDataObject extends DataObject {
         static public boolean isObjectStorageSystem(Type type) {
             return (type == ecs);
         }
+        
+        static public boolean isCeph(Type type) {
+        	return (type == ceph);
+        }
 
     }
 

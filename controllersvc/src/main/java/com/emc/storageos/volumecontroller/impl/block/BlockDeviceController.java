@@ -3171,6 +3171,7 @@ public class BlockDeviceController implements BlockController, BlockOrchestratio
             storageSystem.setSmisPortNumber(provider.getPortNumber());
             storageSystem.setSmisProviderIP(provider.getIPAddress());
             storageSystem.setSmisUseSSL(provider.getUseSSL());
+            storageSystem.setKeyringKey(provider.getKeyringKey());
             system = getDevice(storageSystem.getSystemType()).doAddStorageSystem(storageSystem);
             _log.info("Storage is added to the SMI-S provider : " + provider.getProviderID());
         }
@@ -3390,6 +3391,7 @@ public class BlockDeviceController implements BlockController, BlockOrchestratio
             storage.setSmisPortNumber(mainProvider.getPortNumber());
             storage.setSmisProviderIP(mainProvider.getIPAddress());
             storage.setSmisUseSSL(mainProvider.getUseSSL());
+            storage.setKeyringKey(mainProvider.getKeyringKey());
             _dbClient.persistObject(storage);
         }
     }
