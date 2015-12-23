@@ -18,6 +18,7 @@ import com.emc.storageos.ceph.CephClient;
 import com.emc.storageos.ceph.CephClientFactory;
 import com.emc.storageos.db.client.DbClient;
 import com.emc.storageos.db.client.URIUtil;
+import com.emc.storageos.db.client.model.BlockConsistencyGroup;
 import com.emc.storageos.db.client.model.BlockMirror;
 import com.emc.storageos.db.client.model.BlockObject;
 import com.emc.storageos.db.client.model.BlockSnapshot;
@@ -86,6 +87,27 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     }
 
     @Override
+    public void doConnect(StorageSystem storage) {
+        _log.info("doConnect {} (nothing to do for ceph)", storage.getId().toString());
+    }
+
+    @Override
+    public void doDisconnect(StorageSystem storage) {
+        _log.info("doDisconnect {} (nothing to do for ceph)", storage.getId().toString());
+    }
+
+    @Override
+    public String doAddStorageSystem(StorageSystem storage) throws DeviceControllerException {
+        _log.info("doAddStorageSystem {} (nothing to do for ceph, just return null)", storage.getId().toString());
+        return null;
+    }
+
+    @Override
+    public void doRemoveStorageSystem(StorageSystem storage) throws DeviceControllerException {
+        _log.info("doRemoveStorageSystem {} (nothing to do for ceph)", storage.getId().toString());
+    }
+    
+    @Override
     public void doCreateVolumes(StorageSystem storage, StoragePool storagePool, String opId, List<Volume> volumes,
             VirtualPoolCapabilityValuesWrapper capabilities, TaskCompleter taskCompleter) throws DeviceControllerException {
         try {
@@ -108,7 +130,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
                 volume.setDeviceLabel(volume.getLabel());
                 volume.setProvisionedCapacity(volume.getCapacity());
                 volume.setAllocatedCapacity(volume.getCapacity());
-                // volume.setInactive(false); why ???
+                volume.setInactive(false);
             }
             _dbClient.updateObject(volumes);
             taskCompleter.ready(_dbClient);
@@ -289,6 +311,13 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         _log.error("Consistency groups are not supported for Ceph cluster");
         completeTaskAsUnsupported(taskCompleter);
     }
+
+    @Override
+    public void doDeleteConsistencyGroup(StorageSystem storage, URI consistencyGroup, Boolean markInactive, TaskCompleter taskCompleter)
+            throws DeviceControllerException {
+        _log.error("Consistency groups are not supported for Ceph cluster");
+        completeTaskAsUnsupported(taskCompleter);
+    }    
 
     @Override
     public void doDetachClone(StorageSystem storage, URI cloneVolume, TaskCompleter taskCompleter) {
