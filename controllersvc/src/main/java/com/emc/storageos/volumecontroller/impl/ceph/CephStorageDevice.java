@@ -81,6 +81,11 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     }
 
     @Override
+    public boolean validateStorageProviderConnection(String ipAddress, Integer portNumber) {
+        return false;
+    }
+
+    @Override
     public void doCreateVolumes(StorageSystem storage, StoragePool storagePool, String opId, List<Volume> volumes,
             VirtualPoolCapabilityValuesWrapper capabilities, TaskCompleter taskCompleter) throws DeviceControllerException {
         try {

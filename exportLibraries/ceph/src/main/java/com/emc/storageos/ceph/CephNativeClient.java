@@ -8,6 +8,8 @@ import com.google.common.collect.Lists;
 import com.ceph.rados.IoCTX;
 import com.ceph.rados.Rados;
 import com.ceph.rados.exceptions.RadosException;
+import com.ceph.rados.exceptions.RadosInvalidArgumentException;
+import com.ceph.rados.exceptions.RadosPermissionException;
 import com.ceph.rbd.jna.RbdSnapInfo;
 import com.ceph.rbd.Rbd;
 import com.ceph.rbd.RbdException;
@@ -23,11 +25,13 @@ public class CephNativeClient implements CephClient {
     private Rados _rados;
 
     public CephNativeClient(final String monitorHost, final String userName, final String userKey) throws CephException {
-        _rados = new Rados(userName);
         try {
-            _rados.confSet("mon_host", monitorHost);
-            _rados.confSet("key", userKey);
+            _rados = new Rados(userName);
+            _rados.confSet("mon_host", monitorHost);            
+            _rados.confSet("key", userKey);            
             _rados.connect();
+        } catch (RadosPermissionException | RadosInvalidArgumentException e) {
+        	throw CephException.exceptions.invalidCredentialsError(e);
         } catch (RadosException e) {
             throw CephException.exceptions.connectionError(e);
         }
