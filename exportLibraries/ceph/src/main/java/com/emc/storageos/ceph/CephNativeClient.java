@@ -3,10 +3,9 @@ package com.emc.storageos.ceph;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.collect.Lists;
-
 import com.ceph.rados.IoCTX;
 import com.ceph.rados.Rados;
+import com.ceph.rados.exceptions.ErrorCode;
 import com.ceph.rados.exceptions.RadosException;
 import com.ceph.rados.exceptions.RadosInvalidArgumentException;
 import com.ceph.rados.exceptions.RadosPermissionException;
@@ -24,6 +23,101 @@ public class CephNativeClient implements CephClient {
 	private static final long LAYERING = 1;
     private Rados _rados;
 
+    interface RadosOperationT<T> {
+        abstract public T call() throws RadosException, RbdException;
+    }
+
+    interface RbdOperation {
+        abstract public void call(Rbd rbd) throws RadosException, RbdException;
+    }
+
+    interface RbdOperationT<T> {
+        abstract public T call(Rbd rbd) throws RadosException, RbdException;
+    }
+
+    interface RbdImageOperationT<T> {
+        abstract public T call(RbdImage image) throws RadosException, RbdException;
+    }
+
+    interface RbdImageOperation {
+        abstract public void call(RbdImage image) throws RadosException, RbdException;
+    }
+
+    private String convertErrorMessage(RbdException e, String errorMsg, final Object... errorMsgArgs) {
+   		int errorCode = e.getReturnValue();
+   		String errorName = ErrorCode.getErrorName(errorCode);
+   		String errorMessage = ErrorCode.getErrorMessage(errorCode);
+   		return String.format("%s; %s: %s", String.format(errorMsg, errorMsgArgs), errorName, errorMessage);
+   	}
+
+	private <T> T doCall(final RadosOperationT<T> op, final String errorMsg, final Object... errorMsgArgs) throws CephException {
+        try {
+    		return op.call();
+        } catch (RbdException e) {
+            throw CephException.exceptions.operationException(convertErrorMessage(e, errorMsg, errorMsgArgs));
+        } catch (RadosException e) {
+            throw CephException.exceptions.operationException(e);
+        }
+	}
+
+	private <T> T doCall(final String pool, final RbdOperationT<T> rbdOp, final String errorMsg, final Object... errorMsgArgs) {
+		RadosOperationT<T> op = new RadosOperationT<T>() {
+            @Override
+            public T call() throws RadosException, RbdException {
+            	IoCTX ioCtx = null;
+            	try {
+        	        ioCtx = _rados.ioCtxCreate(pool);
+    	            Rbd rbd = new Rbd(ioCtx);
+        			return rbdOp.call(rbd);
+        		} finally {
+                    if (ioCtx != null) {
+                        _rados.ioCtxDestroy(ioCtx);
+                        ioCtx = null;
+                    }   
+                }        		
+        	}
+    	};	
+		return doCall(op, errorMsg, errorMsgArgs);
+	}
+
+	private void doCall(final String pool, final RbdOperation rbdOp, final String errorMsg, final Object... errorMsgArgs) {
+		RbdOperationT<Object> opt = new RbdOperationT<Object>() {
+            @Override
+            public Object call(Rbd rbd) throws RadosException, RbdException {
+            	rbdOp.call(rbd);
+            	return null;
+        	}
+    	};	
+		doCall(pool, opt, errorMsg, errorMsgArgs);
+	}
+
+	private <T> T doCall(final String pool, final String imageName, final RbdImageOperationT<T> rbdImageOp, final String errorMsg, final Object... errorMsgArgs) throws CephException {
+		RbdOperationT<T> op = new RbdOperationT<T>() {
+            @Override
+            public T call(Rbd rbd) throws RadosException, RbdException {
+            	RbdImage image = null;
+            	try {
+                    image = rbd.open(imageName);
+                    return rbdImageOp.call(image);
+                } finally {
+                    rbd.close(image);
+                }
+            }
+		};
+		return doCall(pool, op, errorMsg, errorMsgArgs);
+	}
+
+	private void doCall(final String pool, final String imageName, final RbdImageOperation rbdImageOp, final String errorMsg, final Object... errorMsgArgs) throws CephException {
+		RbdImageOperationT<Object> op = new RbdImageOperationT<Object>() {
+            @Override
+            public Object call(RbdImage image) throws RadosException, RbdException {
+            	rbdImageOp.call(image);
+            	return null;
+            }
+		};
+		doCall(pool, imageName, op, errorMsg, errorMsgArgs);
+	}
+
     public CephNativeClient(final String monitorHost, final String userName, final String userKey) throws CephException {
         try {
             _rados = new Rados(userName);
@@ -39,231 +133,150 @@ public class CephNativeClient implements CephClient {
 
     @Override
     public ClusterInfo getClusterInfo() throws CephException {
-        ClusterInfo info = new ClusterInfo();
-        try {
-            info.setFsid(_rados.clusterFsid());
-        } catch (RadosException e) {
-            throw CephException.exceptions.operationException(e);
-        }
-        return info;
+    	return doCall(new RadosOperationT<ClusterInfo>() {
+            @Override
+            public ClusterInfo call() throws RadosException {
+            	ClusterInfo info = new ClusterInfo();
+                info.setFsid(_rados.clusterFsid());
+                return info;
+            }
+        }, "Failed to get Ceph cluster info");
     }
 
     @Override
     public List<PoolInfo> getPools() throws CephException {
-        List<PoolInfo> pools = new ArrayList<PoolInfo>();
-        try {
-            String[] poolNames = _rados.poolList();
-            for (String poolName: poolNames) {
-                PoolInfo poolInfo = new PoolInfo();
-                poolInfo.setName(poolName);
-                poolInfo.setId(_rados.poolLookup(poolName));
-                pools.add(poolInfo);
+    	return doCall(new RadosOperationT<List<PoolInfo>>() {
+            @Override
+            public List<PoolInfo> call() throws RadosException {
+            	List<PoolInfo> pools = new ArrayList<PoolInfo>();
+                String[] poolNames = _rados.poolList();
+                for (String poolName: poolNames) {
+                    PoolInfo poolInfo = new PoolInfo();
+                    poolInfo.setName(poolName);
+                    poolInfo.setId(_rados.poolLookup(poolName));
+                    pools.add(poolInfo);
+                }
+                return pools;
             }
-        } catch (RadosException e) {
-            throw CephException.exceptions.operationException(e);
-        }
-        return pools;
+        }, "Failed to get Ceph pools");
     }
 
     @Override
-    public void createImage(String pool, String name, long size) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            long features = LAYERING;
-            rbd.create(name, size, features);
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+    public void createImage(String pool, final String name, final long size) throws CephException {
+    	doCall(pool, new RbdOperation() {
+            @Override
+            public void call(Rbd rbd) throws RbdException {
+                long features = LAYERING;
+                rbd.create(name, size, features);
+            }
+        }, "Failed to create Ceph image %s/%s with size %s", pool, name, size);    	
     }
 
     @Override
-    public void deleteImage(String pool, String name) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            rbd.remove(name);
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+    public void deleteImage(String pool, final String name) throws CephException {
+    	doCall(pool, new RbdOperation() {
+            @Override
+            public void call(Rbd rbd) throws RbdException {
+                rbd.remove(name);
+            }
+        }, "Failed to delete Ceph image %s/%s", pool, name);    	
     }
 
     @Override
-    public void resizeImage(String pool, String name, long size) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(name);
-            try {
+    public void resizeImage(String pool, String name, final long size) throws CephException {
+    	doCall(pool, name, new RbdImageOperation() {
+            @Override
+            public void call(RbdImage image) throws RbdException {
                 image.resize(size);
-            } finally {
-                rbd.close(image);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+        }, "Failed to resize Ceph image %s/%s to size %s", pool, name, size);    	
     }
 
     @Override
-    public void createSnap(String pool, String imageName, String snapName) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(imageName);
-            try {
+    public void createSnap(String pool, String imageName, final String snapName) throws CephException {
+    	doCall(pool, imageName, new RbdImageOperation() {
+            @Override
+            public void call(RbdImage image) throws RbdException {
                 image.snapCreate(snapName);
-            } finally {
-                rbd.close(image);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+        }, "Failed to create snapshot %s for Ceph image %s/%s", snapName, pool, imageName);    	
     }
 
     @Override
-    public void deleteSnap(String pool, String imageName, String snapName) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(imageName);
-            try {
+    public void deleteSnap(String pool, String imageName, final String snapName) throws CephException {
+    	doCall(pool, imageName, new RbdImageOperation() {
+            @Override
+            public void call(RbdImage image) throws RbdException {
                 image.snapRemove(snapName);
-            } finally {
-                rbd.close(image);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+        }, "Failed to remove Ceph snapshot %s/%s@%s", pool, imageName, snapName);    	
     }
 
     @Override
-    public void cloneSnap(String pool, String parentImage, String parentSnap, String childName) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            long features = LAYERING;
-            int order = 0;
-            rbd.clone(parentImage, parentSnap, ioCtx, childName, features, order);
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+    public void cloneSnap(final String pool, final String parentImage, final String parentSnap, final String childName) throws CephException {
+    	doCall(pool, new RbdOperation() {
+            @Override
+            public void call(Rbd rbd) throws RadosException, RbdException  {
+            	IoCTX childIOCtx = null;
+            	try {
+            		childIOCtx = _rados.ioCtxCreate(pool);
+            		long features = LAYERING;
+            		int order = 0;
+            		rbd.clone(parentImage, parentSnap, childIOCtx, childName, features, order);
+            	} finally {
+            		if (childIOCtx != null)
+            			_rados.ioCtxDestroy(childIOCtx);
+            	}
+            }
+        }, "Failed to clone Ceph snapshot %s/%s@%s with name %s", pool, parentImage, parentSnap, childName);    	
     }
 
     @Override
-    public void protectSnap(String pool, String parentImage, String snapName) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(parentImage);
-            try {
+    public void protectSnap(String pool, String parentImage, final String snapName) throws CephException {
+    	doCall(pool, parentImage, new RbdImageOperation() {
+            @Override
+            public void call(RbdImage image) throws RbdException {
                 image.snapProtect(snapName);
-            } finally {
-                rbd.close(image);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+        }, "Failed to protect Ceph snapshot %s/%s@%s", pool, parentImage, snapName);    	
     }
 
     @Override
-    public void unprotectSnap(String pool, String parentImage, String snapName) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(parentImage);
-            try {
+    public void unprotectSnap(String pool, String parentImage, final String snapName) throws CephException {
+    	doCall(pool, parentImage, new RbdImageOperation() {
+            @Override
+            public void call(RbdImage image) throws RbdException {
                 image.snapUnprotect(snapName);
-            } finally {
-                rbd.close(image);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
+        }, "Failed to unprotect Ceph snapshot %s/%s@%s", pool, parentImage, snapName);    	
     }
 
     @Override
-    public boolean snapIsProtected(String pool, String parentImage, String snapName) throws CephException {
-        boolean result = false;
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(parentImage);
-            try {
-            	result = image.snapIsProtected(snapName);
-            } finally {
-                rbd.close(image);
+    public boolean snapIsProtected(String pool, String parentImage, final String snapName) throws CephException {
+    	return doCall(pool, parentImage, new RbdImageOperationT<Boolean>() {
+            @Override
+            public Boolean call(RbdImage image) throws RbdException {
+            	return image.snapIsProtected(snapName);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
-        return result;
+        }, "Failed to get is_protected status for Ceph snapshot %s/%s@%s", pool, parentImage, snapName);    	
     }
 
     @Override
     public void flattenImage(String pool, String imageName) throws CephException {
-        IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(imageName);
-            try {
+    	doCall(pool, imageName, new RbdImageOperation() {
+            @Override
+            public void call(RbdImage image) throws RbdException {
                 image.flatten();
-            } finally {
-                rbd.close(image);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }    	
+        }, "Failed to flatten Ceph image %s/%s", pool, imageName);    	
     }
     
     @Override
     public List<SnapInfo> getSnapshots(String pool, String imageName) throws CephException {
-    	List<SnapInfo> result = new ArrayList<SnapInfo>();
-    	IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(imageName);
-            try {
+    	return doCall(pool, imageName, new RbdImageOperationT<List<SnapInfo>>() {
+            @Override
+            public List<SnapInfo> call(RbdImage image) throws RbdException {
+            	List<SnapInfo> result = new ArrayList<SnapInfo>();
                 List<RbdSnapInfo> snapList = image.snapList();
                 for (RbdSnapInfo snap: snapList) {
                 	SnapInfo snapInfo = new SnapInfo();
@@ -271,37 +284,18 @@ public class CephNativeClient implements CephClient {
                 	snapInfo.setName(snap.name);
                 	result.add(snapInfo);
                 }
-            } finally {
-                rbd.close(image);
+                return result;
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
-        return result;
+        }, "Failed to list snapshots for Ceph image %s/%s", pool, imageName);    	
     }
 
     @Override
-    public List<String> getChildren(String pool, String parentImage, String snapName) throws CephException {
-    	List<String> result = new ArrayList<String>();
-    	IoCTX ioCtx = null;
-        try {
-            ioCtx = _rados.ioCtxCreate(pool);
-            Rbd rbd = new Rbd(ioCtx);
-            RbdImage image = rbd.open(parentImage);
-            try {
-            	result.addAll(image.listChildren(snapName));
-            } finally {
-                rbd.close(image);
+    public List<String> getChildren(String pool, String parentImage, final String snapName) throws CephException {
+    	return doCall(pool, parentImage, new RbdImageOperationT<List<String>>() {
+            @Override
+            public List<String> call(RbdImage image) throws RbdException {
+            	return image.listChildren(snapName);
             }
-        } catch (RadosException | RbdException e) {
-            throw CephException.exceptions.operationException(e);
-        } finally {
-            if (ioCtx != null)
-                _rados.ioCtxDestroy(ioCtx);
-        }
-        return result;
+        }, "Failed to list children for Ceph snapshot %s/%s@%s", pool, parentImage, snapName);
     }
 }
