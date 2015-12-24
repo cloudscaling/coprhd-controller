@@ -18,7 +18,6 @@ import com.emc.storageos.ceph.CephClient;
 import com.emc.storageos.ceph.CephClientFactory;
 import com.emc.storageos.db.client.DbClient;
 import com.emc.storageos.db.client.URIUtil;
-import com.emc.storageos.db.client.model.BlockConsistencyGroup;
 import com.emc.storageos.db.client.model.BlockMirror;
 import com.emc.storageos.db.client.model.BlockObject;
 import com.emc.storageos.db.client.model.BlockSnapshot;
@@ -315,8 +314,8 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     @Override
     public void doDeleteConsistencyGroup(StorageSystem storage, URI consistencyGroup, Boolean markInactive, TaskCompleter taskCompleter)
             throws DeviceControllerException {
-        _log.error("Consistency groups are not supported for Ceph cluster");
-        completeTaskAsUnsupported(taskCompleter);
+        _log.debug("doDeleteConsistencyGroup: do nothing for Ceph, because of doCreateConsistencyGroup is unsupported");
+        taskCompleter.ready(_dbClient);
     }    
 
     @Override
