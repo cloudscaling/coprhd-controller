@@ -154,7 +154,7 @@
         $('#storageArray_confirmPassword').val('');        
         $('#storageArray_smisUserPassword').val('');        
         $('#storageArray_smisConfirmPassword').val('');    
-        
+        $('#storageArray_keyringKey').val('');        
         
         if ( isUnregistered ) {
             var saveTxt = '${messages.get("button.save")}';
@@ -271,9 +271,9 @@
                 $('#storageArray_useSSLControlGroup').show();
             }
             
+            $('#storageArray_keyringKeyControlGroup').hide().attr('required', false);
             if (!editMode) {
             	$('#storageArray_elementManagerURLControlGroup').show();
-                $('#storageArray_keyringKeyControlGroup').hide().attr('required', false);
                 if ($('#storageArray_type').val() == '${scaleIOStorageSystemType}') {
                     $('#storageArray_secondaryUsernameControlGroup').show();
                     $('#storageArray_secondaryPasswordControlGroup').show();
@@ -312,8 +312,6 @@
                 $('#storageArray_elementManagerURLControlGroup').hide();
                 $('#storageArray_keyringKeyControlGroup').hide().attr('required', false);
                 if ($('#storageArray_type').val() == '${cephStorageSystemType}') { 
-                    $('#storageArray_userNameControlGroup').show();
-                    $('#storageArray_keyringKeyControlGroup').show();
                     $('#storageArray_useSSLControlGroup').hide().attr('required', false);
                     $('#storageArray_portNumberControlGroup').hide().attr('required', false);
                     $('#storageArray_userPasswordControlGroup').hide().attr('required', false);
@@ -335,7 +333,7 @@
                 $('#storageArray_userNameControlGroup').hide();
                 $('#storageArray_userPasswordControlGroup').hide();
                 $('#storageArray_confirmPasswordControlGroup').hide();
-	  		    
+                $('#storageArray_keyringKeyControlGroup').hide();
 	  		}
 	  		
       } else  if (isNonSmisStorageSystem(selectedType) ) {
