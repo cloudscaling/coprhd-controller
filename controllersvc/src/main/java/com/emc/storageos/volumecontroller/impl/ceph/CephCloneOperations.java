@@ -13,10 +13,8 @@ import org.slf4j.LoggerFactory;
 
 import com.emc.storageos.ceph.CephClient;
 import com.emc.storageos.ceph.CephClientFactory;
-import com.emc.storageos.ceph.model.SnapInfo;
 import com.emc.storageos.db.client.DbClient;
 import com.emc.storageos.db.client.URIUtil;
-import com.emc.storageos.db.client.constraint.ContainmentConstraint;
 import com.emc.storageos.db.client.model.BlockObject;
 import com.emc.storageos.db.client.model.BlockSnapshot;
 import com.emc.storageos.db.client.model.DataObject.Flag;
@@ -24,13 +22,10 @@ import com.emc.storageos.db.client.model.NamedURI;
 import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.db.client.model.StringSet;
-import com.emc.storageos.db.client.model.TenantOrg;
 import com.emc.storageos.db.client.model.Volume;
 import com.emc.storageos.db.client.model.Volume.ReplicationState;
-import com.emc.storageos.db.client.util.NameGenerator;
 import com.emc.storageos.db.client.util.NullColumnValueGetter;
 import com.emc.storageos.db.client.util.ResourceOnlyNameGenerator;
-import com.emc.storageos.db.exceptions.DatabaseException;
 import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.svcs.errorhandling.model.ServiceCoded;
 import com.emc.storageos.volumecontroller.CloneOperations;
@@ -45,7 +40,6 @@ public class CephCloneOperations implements CloneOperations {
     private static Logger _log = LoggerFactory.getLogger(CephCloneOperations.class);
     private DbClient _dbClient;
     private CephClientFactory _cephClientFactory;
-    private NameGenerator _nameGenerator;
 
     public void setDbClient(DbClient dbClient) {
         _dbClient = dbClient;
@@ -55,17 +49,13 @@ public class CephCloneOperations implements CloneOperations {
         _cephClientFactory = cephClientFactory;
     }
     
-    public void setNameGenerator(NameGenerator nameGenerator) {
-        _nameGenerator = nameGenerator;
-    }
-
     @Override
     public void createSingleClone(StorageSystem storageSystem, URI source, URI clone, Boolean createInactive,
             TaskCompleter taskCompleter) {
         _log.info("START createSingleClone operation");
         try {
         	Volume cloneVolume = _dbClient.queryObject(Volume.class, clone);
-        	String cloneVolumeLabel = cloneVolume.getLabel();
+        	String cloneVolumeLabel = CephUtils.createNativeId(cloneVolume);
 
         	BlockObject sourceObject = BlockObject.fetch(_dbClient, source); 
         	BlockSnapshot sourceSnapshot = null;
@@ -75,7 +65,7 @@ public class CephCloneOperations implements CloneOperations {
             	parentVolume = _dbClient.queryObject(Volume.class, sourceSnapshot.getParent());
             } else if (sourceObject instanceof Volume) {
             	parentVolume = (Volume)sourceObject;
-            	sourceSnapshot = prepareInternalSnapshotForVolume(generateSnapNameForVolume(cloneVolume), parentVolume);            	
+            	sourceSnapshot = prepareInternalSnapshotForVolume(parentVolume);
             } else {
             	String msg = String.format("Unsupported block object type URI %", parentVolume);
                 ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("createSingleClone", msg);
@@ -91,7 +81,7 @@ public class CephCloneOperations implements CloneOperations {
 
             // Create snapshot if do volume cloning
             if (snapshotId == null || snapshotId.isEmpty()) {
-            	snapshotId = sourceSnapshot.getLabel();
+            	snapshotId = CephUtils.createNativeId(sourceSnapshot);
             	cephClient.createSnap(poolId, parentVolumeId, snapshotId);
             	sourceSnapshot.setNativeId(snapshotId);
             	sourceSnapshot.setDeviceLabel(snapshotId);
@@ -266,7 +256,7 @@ public class CephCloneOperations implements CloneOperations {
         return CephUtils.connectToCeph(_cephClientFactory, storage);
     }
 
-    private BlockSnapshot prepareInternalSnapshotForVolume(String name, Volume volume) {
+    private BlockSnapshot prepareInternalSnapshotForVolume(Volume volume) {
         BlockSnapshot snapshot = new BlockSnapshot();
         snapshot.setId(URIUtil.createId(BlockSnapshot.class));
         URI cgUri = volume.getConsistencyGroup();
@@ -275,29 +265,15 @@ public class CephCloneOperations implements CloneOperations {
         }
         snapshot.setSourceNativeId(volume.getNativeId());
         snapshot.setParent(new NamedURI(volume.getId(), volume.getLabel()));
-        snapshot.setLabel(name);
+        snapshot.setLabel(String.format("temp-for-cloning-%s", snapshot.getId()));
         snapshot.setStorageController(volume.getStorageController());
         snapshot.setVirtualArray(volume.getVirtualArray());
         snapshot.setProtocol(new StringSet());
         snapshot.getProtocol().addAll(volume.getProtocol());
         snapshot.setProject(new NamedURI(volume.getProject().getURI(), volume.getProject().getName()));
-        snapshot.setSnapsetLabel(ResourceOnlyNameGenerator.removeSpecialCharsForName(name, SmisConstants.MAX_SNAPSHOT_NAME_LENGTH));
+        snapshot.setSnapsetLabel(ResourceOnlyNameGenerator.removeSpecialCharsForName(snapshot.getLabel(), SmisConstants.MAX_SNAPSHOT_NAME_LENGTH));
         snapshot.addInternalFlags(Flag.INTERNAL_OBJECT);
         return snapshot;
     }
     
-    private String generateSnapNameForVolume(Volume volume) {
-        String tenantName = "";
-        try
-        {
-            TenantOrg tenant = _dbClient.queryObject(TenantOrg.class, volume.getTenant().getURI());
-            tenantName = tenant.getLabel();
-        } catch (DatabaseException e)
-        {
-            _log.error("Error lookup TenantOrg object", e);
-        }
-        String label = _nameGenerator.generate(tenantName, String.format("snap-%s", volume.getLabel()), volume.getId().toString(),
-                '-', SmisConstants.MAX_VOLUME_NAME_LENGTH);
-    	return label;
-    }
 }

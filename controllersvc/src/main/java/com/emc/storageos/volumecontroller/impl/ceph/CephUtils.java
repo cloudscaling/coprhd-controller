@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.emc.storageos.ceph.CephClient;
 import com.emc.storageos.ceph.CephClientFactory;
 import com.emc.storageos.db.client.DbClient;
+import com.emc.storageos.db.client.model.DataObject;
 import com.emc.storageos.db.client.model.StorageProvider;
 import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.plugins.AccessProfile;
@@ -31,7 +32,11 @@ public class CephUtils {
         CephClientFactory factory = new CephClientFactory();
         factory.getClient(storageProvider.getIPAddress(), storageProvider.getUserName(), storageProvider.getKeyringKey());    	
     }
-    
+
+    public static String createNativeId(DataObject object) {
+        return String.format("%s-%s", object.getLabel(), object.getId());
+    }
+
     public static List<URI> refreshCephConnections(final List<StorageProvider> cephProviderList,
             DbClient dbClient) {
         List<URI> activeProviders = new ArrayList<URI>();

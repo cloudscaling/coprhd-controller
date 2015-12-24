@@ -11,16 +11,12 @@ import com.emc.storageos.db.client.DbClient;
 import com.emc.storageos.db.client.model.BlockSnapshot;
 import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StorageSystem;
-import com.emc.storageos.db.client.model.TenantOrg;
 import com.emc.storageos.db.client.model.Volume;
-import com.emc.storageos.db.client.util.NameGenerator;
-import com.emc.storageos.db.exceptions.DatabaseException;
 import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.exceptions.DeviceControllerException;
 import com.emc.storageos.svcs.errorhandling.model.ServiceError;
 import com.emc.storageos.volumecontroller.DefaultSnapshotOperations;
 import com.emc.storageos.volumecontroller.TaskCompleter;
-import com.emc.storageos.volumecontroller.impl.smis.SmisConstants;
 
 public class CephSnapshotOperations extends DefaultSnapshotOperations {
 
@@ -28,7 +24,6 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
 
     private DbClient _dbClient;
     private CephClientFactory _cephClientFactory;
-    private NameGenerator _nameGenerator;
 
     private CephClient getClient(StorageSystem storage) {
         return CephUtils.connectToCeph(_cephClientFactory, storage);    	
@@ -42,10 +37,6 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
         _cephClientFactory = cephClientFactory;
     }
 
-    public void setNameGenerator(NameGenerator nameGenerator) {
-        _nameGenerator = nameGenerator;
-    }
-
     @Override
     public void createSingleVolumeSnapshot(StorageSystem storage, URI snapshot, Boolean createInactive, Boolean readOnly,
             TaskCompleter taskCompleter) throws DeviceControllerException {
@@ -54,21 +45,11 @@ public class CephSnapshotOperations extends DefaultSnapshotOperations {
             BlockSnapshot blockSnapshot = _dbClient.queryObject(BlockSnapshot.class, snapshot);
             Volume volume = _dbClient.queryObject(Volume.class, blockSnapshot.getParent().getURI());
             StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());
-            String tenantName = "";
-            try
-            {
-                TenantOrg tenant = _dbClient.queryObject(TenantOrg.class, volume.getTenant().getURI());
-                tenantName = tenant.getLabel();
-            } catch (DatabaseException e)
-            {
-                _log.error("Error lookup TenantOrg object", e);
-            }
-            String label = _nameGenerator.generate(tenantName, blockSnapshot.getLabel(), blockSnapshot.getId().toString(),
-                    '-', SmisConstants.MAX_VOLUME_NAME_LENGTH);
 
-            cephClient.createSnap(pool.getPoolName(), volume.getNativeId(), label);
+            String id = CephUtils.createNativeId(blockSnapshot);
+            cephClient.createSnap(pool.getPoolName(), volume.getNativeId(), id);
 
-            blockSnapshot.setNativeId(label);
+            blockSnapshot.setNativeId(id);
             blockSnapshot.setDeviceLabel(blockSnapshot.getLabel());
             blockSnapshot.setIsSyncActive(true);
             _dbClient.updateObject(blockSnapshot);

@@ -27,10 +27,7 @@ import com.emc.storageos.db.client.model.HostInterface;
 import com.emc.storageos.db.client.model.Initiator;
 import com.emc.storageos.db.client.model.StoragePool;
 import com.emc.storageos.db.client.model.StorageSystem;
-import com.emc.storageos.db.client.model.TenantOrg;
 import com.emc.storageos.db.client.model.Volume;
-import com.emc.storageos.db.client.util.NameGenerator;
-import com.emc.storageos.db.exceptions.DatabaseException;
 import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.exceptions.DeviceControllerException;
 import com.emc.storageos.svcs.errorhandling.model.ServiceCoded;
@@ -41,7 +38,6 @@ import com.emc.storageos.volumecontroller.SnapshotOperations;
 import com.emc.storageos.volumecontroller.TaskCompleter;
 import com.emc.storageos.volumecontroller.impl.ControllerUtils;
 import com.emc.storageos.volumecontroller.impl.NativeGUIDGenerator;
-import com.emc.storageos.volumecontroller.impl.smis.SmisConstants;
 import com.emc.storageos.volumecontroller.impl.utils.ExportMaskUtils;
 import com.emc.storageos.volumecontroller.impl.utils.VirtualPoolCapabilityValuesWrapper;
 import com.iwave.ext.linux.LinuxSystemCLI;
@@ -55,7 +51,6 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     private CephClientFactory _cephClientFactory;
     private SnapshotOperations _snapshotOperations;
     private CloneOperations _cloneOperations;
-    private NameGenerator _nameGenerator;
 
     public void setDbClient(DbClient dbClient) {
         _dbClient = dbClient;
@@ -71,10 +66,6 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 
     public void setCloneOperations(CloneOperations cloneOperations) {
         this._cloneOperations = cloneOperations;
-    }
-
-    public void setNameGenerator(NameGenerator nameGenerator) {
-        _nameGenerator = nameGenerator;
     }
 
     @Override
@@ -109,19 +100,10 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
         try {
             CephClient cephClient = getClient(storage);
             for (Volume volume : volumes) {
-                String tenantName = "";
-                try
-                {
-                    TenantOrg tenant = _dbClient.queryObject(TenantOrg.class, volume.getTenant().getURI());
-                    tenantName = tenant.getLabel();
-                } catch (DatabaseException e)
-                {
-                    _log.error("Error lookup TenantOrg object", e);
-                }
-                String label = _nameGenerator.generate(tenantName, volume.getLabel(), volume.getId().toString(),
-                        '-', SmisConstants.MAX_VOLUME_NAME_LENGTH);
-                cephClient.createImage(storagePool.getPoolName(), label, volume.getCapacity()); // / 1073741824L);
-                volume.setNativeId(label);
+                String id = CephUtils.createNativeId(volume);
+                cephClient.createImage(storagePool.getPoolName(), id, volume.getCapacity());
+
+                volume.setNativeId(id);
                 volume.setNativeGuid(NativeGUIDGenerator.generateNativeGuid(_dbClient, volume));
                 volume.setDeviceLabel(volume.getLabel());
                 volume.setProvisionedCapacity(volume.getCapacity());
