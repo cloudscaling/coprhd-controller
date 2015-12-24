@@ -87,7 +87,7 @@ public class CephCloneOperations implements CloneOperations {
             	sourceSnapshot.setDeviceLabel(snapshotId);
             	sourceSnapshot.setIsSyncActive(true);
             	sourceSnapshot.setParent(new NamedURI(parentVolume.getId(), parentVolume.getLabel()));
-                _dbClient.persistObject(sourceSnapshot);
+                _dbClient.updateObject(sourceSnapshot);
             }
             
             // Protect snap if needed
@@ -110,7 +110,7 @@ public class CephCloneOperations implements CloneOperations {
             cloneVolume.setAllocatedCapacity(cloneVolume.getCapacity());
             cloneVolume.setInactive(createInactive);
             cloneVolume.setAssociatedSourceVolume(sourceSnapshot.getId());
-            _dbClient.persistObject(cloneVolume);
+            _dbClient.updateObject(cloneVolume);
             
             // Finish task
             taskCompleter.ready(_dbClient);
@@ -118,7 +118,7 @@ public class CephCloneOperations implements CloneOperations {
         	BlockObject obj = BlockObject.fetch(_dbClient, clone); 
             if (obj != null) {
             	obj.setInactive(true);
-                _dbClient.persistObject(obj);
+                _dbClient.updateObject(obj);
             }
             _log.error("Encountered an exception", e);
             ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("createSingleClone", e.getMessage());
@@ -151,7 +151,7 @@ public class CephCloneOperations implements CloneOperations {
             ReplicationUtils.removeDetachedFullCopyFromSourceFullCopiesList(clone, _dbClient);
             clone.setAssociatedSourceVolume(NullColumnValueGetter.getNullURI());
             clone.setReplicaState(ReplicationState.DETACHED.name());
-            _dbClient.persistObject(clone);
+            _dbClient.updateObject(clone);
 
             // Un-protect snap if it was last child and delete internal interim snapshot
             List<String> children = cephClient.getChildren(poolId, sourceVolumeId, snapshotId);
@@ -182,7 +182,7 @@ public class CephCloneOperations implements CloneOperations {
         	BlockObject obj = BlockObject.fetch(_dbClient, cloneVolume); 
             if (obj != null) {
             	obj.setInactive(true);
-                _dbClient.persistObject(obj);
+                _dbClient.updateObject(obj);
             }
 	        _log.error("Encountered an exception", e);
 	        ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("detachSingleClone", e.getMessage());

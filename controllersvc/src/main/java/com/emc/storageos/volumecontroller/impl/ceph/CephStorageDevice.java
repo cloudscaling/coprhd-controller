@@ -444,7 +444,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 	                	LinuxSystemCLI linuxClient = getLinuxClient(host);
 	                	String id = linuxClient.mapRBD(monitorAddress, monitorUser, monitorKey, poolName, volumeName, snapshotName);
 	                	exportMask.addVolume(object.getId(), Integer.valueOf(id));
-	                	_dbClient.updateAndReindexObject(exportMask);
+	                	_dbClient.updateObject(exportMask);
 	                } else {
 	                	String msg = String.format("Unexpected initiator protocol %s, port %s, pool %s, volume %s",
 	                			initiator.getProtocol(), initiator.getInitiatorPort(), poolName, volumeName);
@@ -495,7 +495,7 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 	            		LinuxSystemCLI linuxClient = getLinuxClient(host);
 	            		linuxClient.unmapRBD(volumeNumber);
 	            		exportMask.removeVolume(volumeURI);
-	                	_dbClient.updateAndReindexObject(exportMask);
+	                	_dbClient.updateObject(exportMask);
 	                } else {
 	                	String msgPattern = "Unexpected initiator protocol %s for port %s and nativeId %s";
 	                	String msg = String.format(msgPattern, initiator.getProtocol(), port, nativeId);
