@@ -15,4 +15,7 @@ public interface CephExceptions {
 
     @DeclareServiceCode(ServiceCode.CEPH_OPERATION_EXCEPTION)
     public CephException operationException(Throwable t);
+
+    @DeclareServiceCode(ServiceCode.CEPH_OPERATION_EXCEPTION)
+    public CephException operationException(String msg);
 }
