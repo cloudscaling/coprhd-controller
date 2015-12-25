@@ -4479,6 +4479,9 @@ Please DO NOT modify the content.
                     <annotation name="Encrypt" type="com.emc.storageos.db.client.model.Encrypt"/>
                 </annotations>
             </field>
+            <field name="sharedStorageCapacity" type="java.lang.Boolean">
+                <annotations/>
+            </field>
         </fields>
     </data_object_schema>
     <data_object_schema name="StoragePoolSetting" type="com.emc.storageos.db.client.model.StoragePoolSetting">

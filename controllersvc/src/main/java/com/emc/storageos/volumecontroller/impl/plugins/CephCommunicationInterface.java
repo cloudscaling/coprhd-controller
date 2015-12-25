@@ -112,6 +112,8 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
         try {
             CephClient cephClient = CephUtils.connectToCeph(_cephClientFactory, accessProfile);
             system.setReachableStatus(true);
+            system.setSharedStorageCapacity(true);
+            ClusterInfo clusterInfo = cephClient.getClusterInfo();
             List<PoolInfo> pools = cephClient.getPools();
             for (PoolInfo pool: pools) {
                 String poolNativeGUID = NativeGUIDGenerator.generateNativeGuid(
@@ -141,8 +143,6 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                     storagePool.setRegistrationStatus(RegistrationStatus.REGISTERED.toString());
                     storagePool.setMinimumThinVolumeSize(1024L); // ???
                     storagePool.setMaximumThinVolumeSize(10737418240L); // ???
-                    storagePool.setFreeCapacity(10737418240L); // ???
-                    storagePool.setTotalCapacity(10737418240L); // ???
                     storagePool.setInactive(false);
                     newPools.add(storagePool);
                 } else if (storagePools.size() == 1) {
@@ -153,12 +153,15 @@ public class CephCommunicationInterface extends ExtendedCommunicationInterfaceIm
                             poolNativeGUID));
                     continue;
                 }
+                storagePool.setFreeCapacity(clusterInfo.getKbAvail());
+                storagePool.setTotalCapacity(clusterInfo.getKb());
             }
             StoragePoolAssociationHelper.setStoragePoolVarrays(system.getId(), newPools, _dbClient);
             allPools.addAll(newPools);
             allPools.addAll(updatePools);
             DiscoveryUtils.checkStoragePoolsNotVisible(allPools, _dbClient, system.getId());
             _dbClient.createObject(newPools);
+            _dbClient.updateObject(updatePools);
 
             String adapterNativeGUID = NativeGUIDGenerator.generateNativeGuid(
                     system, "-", NativeGUIDGenerator.ADAPTER); // ???

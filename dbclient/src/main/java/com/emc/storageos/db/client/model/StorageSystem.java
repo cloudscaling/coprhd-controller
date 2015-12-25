@@ -136,6 +136,8 @@ public class StorageSystem extends DiscoveredSystemObject {
     // {@link PortMetricProcessor#computeStorageSystemAvgPortMetrics}
     private Double averagePortMetrics;
 
+    private Boolean sharedStorageCapacity = false;
+
     public static enum SupportedProvisioningTypes {
         THICK, THIN, THIN_AND_THICK, NONE
     }
@@ -645,5 +647,17 @@ public class StorageSystem extends DiscoveredSystemObject {
 
     public void setVplexAssemblyIdtoClusterId(StringMap vplexAssemblyIdtoClusterId) {
         this.vplexAssemblyIdtoClusterId = vplexAssemblyIdtoClusterId;
+    }
+
+    @Name("sharedStorageCapacity")
+    public Boolean getSharedStorageCapacity() {
+        return sharedStorageCapacity;
+    }
+
+    public void setSharedStorageCapacity(final Boolean sharedStorageCapacity) {
+        if (this.sharedStorageCapacity == null || !this.sharedStorageCapacity.equals(sharedStorageCapacity)) {
+            this.sharedStorageCapacity = sharedStorageCapacity;
+            setChanged("sharedStorageCapacity");
+        }
     }
 }
