@@ -262,9 +262,9 @@ public class LinuxSystemCLI {
         return command.getResults();
     }
 
-    public void unmapRBD(Integer volumeNumber) {
+    public void unmapRBD(String pool, String volume, String snapshot) {
     	UnmapRBDCommand command = new UnmapRBDCommand();
-    	command.setVolume(volumeNumber);
+    	command.setVolume(pool, volume, snapshot);
         executeCommand(command);
     }
 

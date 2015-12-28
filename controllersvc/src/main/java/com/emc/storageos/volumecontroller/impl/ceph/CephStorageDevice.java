@@ -30,6 +30,7 @@ import com.emc.storageos.db.client.model.StorageSystem;
 import com.emc.storageos.db.client.model.Volume;
 import com.emc.storageos.exceptions.DeviceControllerErrors;
 import com.emc.storageos.exceptions.DeviceControllerException;
+import com.emc.storageos.exceptions.DeviceControllerExceptions;
 import com.emc.storageos.svcs.errorhandling.model.ServiceCoded;
 import com.emc.storageos.svcs.errorhandling.model.ServiceError;
 import com.emc.storageos.volumecontroller.CloneOperations;
@@ -52,6 +53,35 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
     private SnapshotOperations _snapshotOperations;
     private CloneOperations _cloneOperations;
 
+    private class RBDMappingOptions {
+    	public String poolName = null;
+    	public String volumeName = null;
+    	public String snapshotName = null;
+
+    	public RBDMappingOptions(BlockObject object) {
+        	URI uri = object.getId();
+        	Volume volume = null;
+        	BlockSnapshot snapshot = null;
+        	if (URIUtil.isType(uri, Volume.class) || URIUtil.isType(uri, BlockMirror.class)) {
+            	volume = (Volume)object;
+        	} else if (URIUtil.isType(uri, BlockSnapshot.class)) {
+        		snapshot = (BlockSnapshot)object;
+        		volume = _dbClient.queryObject(Volume.class, snapshot.getParent());
+        	} else {
+            	String msg = String.format("getRRBOptions: Unsupported block object type URI %s", uri);
+                throw DeviceControllerExceptions.ceph.operationException(msg);
+        	}
+            StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());
+            this.poolName = pool.getPoolName();
+            this.volumeName = volume.getNativeId();
+            this.snapshotName = null;
+            if (snapshot != null) {
+            	this.snapshotName = snapshot.getNativeId();
+            }	            
+    		
+    	}
+}
+    
     public void setDbClient(DbClient dbClient) {
         _dbClient = dbClient;
     }
@@ -414,40 +444,21 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
 	        for (Map.Entry<URI, Integer> volMapEntry : volumeMap.entrySet()) {
 	        	URI objectUri = volMapEntry.getKey();
 	        	BlockObject object = Volume.fetchExportMaskBlockObject(_dbClient, objectUri);
-	        	Volume volume = null;
-	        	BlockSnapshot snapshot = null;
-	        	if (URIUtil.isType(objectUri, Volume.class) || URIUtil.isType(objectUri, BlockMirror.class)) {
-		        	volume = (Volume)object;
-	        	} else if (URIUtil.isType(objectUri, BlockSnapshot.class)) {
-	        		snapshot = (BlockSnapshot)object;
-	        		volume = _dbClient.queryObject(Volume.class, snapshot.getParent());
-	        	} else {
-                	String msg = String.format("Unsupported block object type URI %s", objectUri);
-                    ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("mapVolumes", msg);
-                    completer.error(_dbClient, code);
-                    return;
-	        	}
-	            StoragePool pool = _dbClient.queryObject(StoragePool.class, volume.getPool());
-	            String poolName = pool.getPoolName();
-	            String volumeName = volume.getNativeId();
-	            String snapshotName = null;
-	            if (snapshot != null) {
-	            	snapshotName = snapshot.getNativeId();
-	            }	            
 	            String monitorAddress = storage.getSmisProviderIP();
 	            String monitorUser = storage.getSmisUserName();
 	            String monitorKey = storage.getKeyringKey();
+	            RBDMappingOptions rbdOptions = new RBDMappingOptions(object);
 	            for (Initiator initiator : initiators) {
 	            	Host host = _dbClient.queryObject(Host.class, initiator.getHost());
 	                if (initiator.getProtocol().equals(HostInterface.Protocol.RBD.name())) {
-	                	_log.info(String.format("mapVolume: host %s pool %s volume %s", host.getHostName(), poolName, volumeName));    	
+	                	_log.info(String.format("mapVolume: host %s pool %s volume %s", host.getHostName(), rbdOptions.poolName, rbdOptions.volumeName));    	
 	                	LinuxSystemCLI linuxClient = getLinuxClient(host);
-	                	String id = linuxClient.mapRBD(monitorAddress, monitorUser, monitorKey, poolName, volumeName, snapshotName);
+	                	String id = linuxClient.mapRBD(monitorAddress, monitorUser, monitorKey, rbdOptions.poolName, rbdOptions.volumeName, rbdOptions.snapshotName);
 	                	exportMask.addVolume(object.getId(), Integer.valueOf(id));
 	                	_dbClient.updateObject(exportMask);
 	                } else {
 	                	String msg = String.format("Unexpected initiator protocol %s, port %s, pool %s, volume %s",
-	                			initiator.getProtocol(), initiator.getInitiatorPort(), poolName, volumeName);
+	                			initiator.getProtocol(), initiator.getInitiatorPort(), rbdOptions.poolName, rbdOptions.volumeName);
 	                    ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("mapVolumes", msg);
 	                    completer.error(_dbClient, code);
 	                    return;
@@ -461,44 +472,38 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             completer.error(_dbClient, code);
         }
     }
-
+    
     private void unmapVolumes(StorageSystem storage, ExportMask exportMask, List<URI> volumeURIs, Collection<Initiator> initiators,
             TaskCompleter completer) {
         _log.info("unmapVolumes: volumeURIs: {}", volumeURIs);
         _log.info("unmapVolumes: initiators: {}", initiators);
     	try {
-	    	for (URI volumeURI : volumeURIs) {
-	    		if (exportMask.checkIfVolumeHLUSet(volumeURI)) {
-	            	_log.warn("Attempted to unmap BlockObject {}, which has not HLU set", volumeURI.toString());
+	    	for (URI uri : volumeURIs) {
+	    		if (exportMask.checkIfVolumeHLUSet(uri)) {
+	            	_log.warn("Attempted to unmap BlockObject {}, which has not HLU set", uri);
 	            	continue;
 	    		}
-	    		Integer volumeNumber = Integer.valueOf(exportMask.returnVolumeHLU(volumeURI));
-	    		BlockObject blockObject = BlockObject.fetch(_dbClient, volumeURI);
-	            if (blockObject == null) {
-	            	_log.warn("Attempted to unmap BlockObject {}, which is empty", volumeURI.toString());
+	    		BlockObject object = BlockObject.fetch(_dbClient, uri);
+	            if (object == null) {
+	            	_log.warn("Attempted to unmap BlockObject {}, which is empty", uri);
 	            	continue;
-	    		}
-	            String nativeId = blockObject.getNativeId();
-	            if (blockObject.getInactive()) {
-	            	_log.warn("Attempted to unmap BlockObject {} ({}), which is inactive", nativeId, volumeURI.toString());
+	    		}	            
+	            if (object.getInactive()) {
+	            	_log.warn("Attempted to unmap BlockObject {}, which is inactive", uri);
 	                continue;
 	            }
-	            String device = blockObject.getDeviceLabel();
-	        	if (device.isEmpty()) {
-	        		_log.warn("Attend to unmap BlockObject {} with empty device path", nativeId);
-	        		continue;
-	        	}
+	            RBDMappingOptions rbdOptions = new RBDMappingOptions(object);
 	            for (Initiator initiator : initiators) {
 	            	Host host = _dbClient.queryObject(Host.class, initiator.getHost());            	
 	                String port = initiator.getInitiatorPort();
 	                if (initiator.getProtocol().equals(HostInterface.Protocol.RBD.name())) {
 	            		LinuxSystemCLI linuxClient = getLinuxClient(host);
-	            		linuxClient.unmapRBD(volumeNumber);
-	            		exportMask.removeVolume(volumeURI);
+	            		linuxClient.unmapRBD(rbdOptions.poolName, rbdOptions.volumeName, rbdOptions.snapshotName);
+	            		exportMask.removeVolume(uri);
 	                	_dbClient.updateObject(exportMask);
 	                } else {
-	                	String msgPattern = "Unexpected initiator protocol %s for port %s and nativeId %s";
-	                	String msg = String.format(msgPattern, initiator.getProtocol(), port, nativeId);
+	                	String msgPattern = "Unexpected initiator protocol %s for port %s and uri %s";
+	                	String msg = String.format(msgPattern, initiator.getProtocol(), port, uri);
 	                	ServiceCoded code = DeviceControllerErrors.ceph.operationFailed("unmapVolumes", msg);
 	                    completer.error(_dbClient, code);
 	                    return;
@@ -512,5 +517,4 @@ public class CephStorageDevice extends DefaultBlockStorageDevice {
             completer.error(_dbClient, code);
         }
     }
-
 }
