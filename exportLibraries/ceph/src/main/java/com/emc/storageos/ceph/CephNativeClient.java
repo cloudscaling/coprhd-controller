@@ -9,6 +9,7 @@ import com.ceph.rados.exceptions.ErrorCode;
 import com.ceph.rados.exceptions.RadosException;
 import com.ceph.rados.exceptions.RadosInvalidArgumentException;
 import com.ceph.rados.exceptions.RadosPermissionException;
+import com.ceph.rados.jna.RadosClusterInfo;
 import com.ceph.rbd.jna.RbdSnapInfo;
 import com.ceph.rbd.Rbd;
 import com.ceph.rbd.RbdException;
@@ -138,6 +139,9 @@ public class CephNativeClient implements CephClient {
             public ClusterInfo call() throws RadosException {
             	ClusterInfo info = new ClusterInfo();
                 info.setFsid(_rados.clusterFsid());
+                RadosClusterInfo stat = _rados.clusterStat();
+                info.setKb(stat.kb);
+                info.setKbAvail(stat.kb_avail);
                 return info;
             }
         }, "Failed to get Ceph cluster info");
