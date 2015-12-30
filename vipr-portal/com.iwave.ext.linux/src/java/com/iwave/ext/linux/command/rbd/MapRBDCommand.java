@@ -57,7 +57,7 @@ public class MapRBDCommand extends LinuxResultsCommand<String> {
 		sb.append("      p=$(cat /sys/bus/rbd/devices/$v1/pool);");
 		sb.append("      n=$(cat /sys/bus/rbd/devices/$v1/name);");
 		sb.append("      s=$(cat /sys/bus/rbd/devices/$v1/current_snap);");		
-		sb.append("      if [[ $p == \"%4$s\" && $n == \"%4$s\" && $s == \"%$6s\" ]]; then");
+		sb.append("      if [[ \"$p\" == \"%4$s\" && \"$n\" == \"%5$s\" && \"$s\" == \"%$6s\" ]]; then");
 		sb.append("        id=$index;");
 		sb.append("        break;");
 		sb.append("      fi;");

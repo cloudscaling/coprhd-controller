@@ -47,7 +47,7 @@ public class UnmapRBDCommand extends LinuxCommand {
 		sb.append("    p=$(cat /sys/bus/rbd/devices/$v/pool);");
 		sb.append("    n=$(cat /sys/bus/rbd/devices/$v/name);");
 		sb.append("    s=$(cat /sys/bus/rbd/devices/$v/current_snap);");		
-		sb.append("    if [[ $p == \"$pool\" && $n == \"$vol\" && $s == \"$snap\" ]]; then");
+		sb.append("    if [[ \"$p\" == \"$pool\" && \"$n\" == \"$vol\" && \"$s\" == \"$snap\" ]]; then");
 		sb.append("      id=$index;");
 		sb.append("      break;");
 		sb.append("    fi;");
