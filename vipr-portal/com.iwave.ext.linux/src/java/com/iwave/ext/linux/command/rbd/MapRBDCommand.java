@@ -31,20 +31,44 @@ public class MapRBDCommand extends LinuxResultsCommand<String> {
 		sb.append("  exit -1;");
 		sb.append("fi;");
 
+		// current state
+		sb.append("volumes=( $(ls /sys/bus/rbd/devices/ | sort) );");
+		sb.append("size=${#volumes[@]};");
+		
 		// do mapping
 		sb.append("  echo \"%1$s name=%2$s,secret=%3$s %4$s %5$s %6$s\" > \"/sys/bus/rbd/add\" || exit -1;");
 
 		// detect volume id (number)
-		sb.append("for i in {0..3}; do");
+		sb.append("for i in {0..2}; do");
 		sb.append("  vol=$(readlink \"$vol_path\");");
 		sb.append("  if [ ! -z \"$vol\" ]; then break; fi;");
 		sb.append("  sleep 1;");
 		sb.append("done;");
 		sb.append("id=$(echo \"$vol\" | grep -o '[0-9]*');");
 		sb.append("if [ -z \"$id\" ]; then");
-		sb.append("    exit -1;");
+		// old driver version
+		sb.append("  new_volumes=( $(ls /sys/bus/rbd/devices/ | sort) );");
+		sb.append("  new_size=${#new_volumes[@]};");
+		sb.append("  index=0;");
+		sb.append("  while [  $index -lt $new_size ]; do");
+		sb.append("    v1=${new_volumes[$index]};");
+		sb.append("    v2=${volumes[$index]};");
+		sb.append("    if [[ $v1 != $v2 ]]; then");
+		sb.append("      p=$(cat /sys/bus/rbd/devices/$v1/pool);");
+		sb.append("      n=$(cat /sys/bus/rbd/devices/$v1/name);");
+		sb.append("      s=$(cat /sys/bus/rbd/devices/$v1/current_snap);");		
+		sb.append("      if [[ $p == \"%4$s\" && $n == \"%4$s\" && $s == \"%$6s\" ]]; then");
+		sb.append("        id=$index;");
+		sb.append("        break;");
+		sb.append("      fi;");
+		sb.append("    fi;");
+		sb.append("    let index=$index+1;");
 		sb.append("fi;");
 
+		sb.append("if [ -z \"$id\" ]; then");
+		sb.append("  exit -1;");
+		sb.append("fi;");		
+		
 		// if ceph common installed (rbdmap service scripts) add info for persistent mapping (on reboot)
 		sb.append("RBDMAP_FILE=\"/etc/ceph/rbdmap\";");
 		sb.append("if [ -f \"$RBDMAP_FILE\" ]; then");

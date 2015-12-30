@@ -38,9 +38,26 @@ public class UnmapRBDCommand extends LinuxCommand {
 		sb.append("fi;");		
 		sb.append("id=$(echo \"$vol\" | grep -o '[0-9]*');");
 		sb.append("if [ -z \"$id\" ]; then");
+		//	find by name
+		sb.append("  volumes=( $(ls /sys/bus/rbd/devices/ | sort) );");
+		sb.append("  size=${#volumes[@]};");
+		sb.append("  index=0;");
+		sb.append("  while [  $index -lt $size ]; do");
+		sb.append("    v=${volumes[$index]};");
+		sb.append("    p=$(cat /sys/bus/rbd/devices/$v/pool);");
+		sb.append("    n=$(cat /sys/bus/rbd/devices/$v/name);");
+		sb.append("    s=$(cat /sys/bus/rbd/devices/$v/current_snap);");		
+		sb.append("    if [[ $p == \"$pool\" && $n == \"$vol\" && $s == \"$snap\" ]]; then");
+		sb.append("      id=$index;");
+		sb.append("      break;");
+		sb.append("    fi;");
+		sb.append("    let index=$index+1;");		
+		sb.append("fi;");		
+		
+		sb.append("if [ -z \"$id\" ]; then");
 		sb.append("    exit -1;");
 		sb.append("fi;");		
-
+		
 		// do unmap
 		sb.append("echo \"$id\" > /sys/bus/rbd/remove || exit -1;");
 		this._template = sb.toString();
