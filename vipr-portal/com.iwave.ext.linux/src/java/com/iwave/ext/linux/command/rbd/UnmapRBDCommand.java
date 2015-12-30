@@ -52,6 +52,7 @@ public class UnmapRBDCommand extends LinuxCommand {
 		sb.append("      break;");
 		sb.append("    fi;");
 		sb.append("    let index=$index+1;");		
+		sb.append("  done;");		
 		sb.append("fi;");		
 		
 		sb.append("if [ -z \"$id\" ]; then");

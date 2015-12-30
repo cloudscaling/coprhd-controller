@@ -63,6 +63,7 @@ public class MapRBDCommand extends LinuxResultsCommand<String> {
 		sb.append("      fi;");
 		sb.append("    fi;");
 		sb.append("    let index=$index+1;");
+		sb.append("  done;");		
 		sb.append("fi;");
 
 		sb.append("if [ -z \"$id\" ]; then");
