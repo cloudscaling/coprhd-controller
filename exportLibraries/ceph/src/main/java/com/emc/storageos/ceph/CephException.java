@@ -12,7 +12,7 @@ public class CephException extends InternalException {
 
     public static final CephErrors errors = ExceptionMessagesProxy.create(CephErrors.class);
 
-    private CephException(final ServiceCode code, final Throwable cause,
+    protected CephException(final ServiceCode code, final Throwable cause,
             final String detailBase, final String detailKey, final Object[] detailParams) {
         super(false, code, cause, detailBase, detailKey, detailParams);
     }

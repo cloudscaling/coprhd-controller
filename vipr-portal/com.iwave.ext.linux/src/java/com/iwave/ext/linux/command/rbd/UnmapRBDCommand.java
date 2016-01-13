@@ -7,7 +7,7 @@ package com.iwave.ext.linux.command.rbd;
 import com.iwave.ext.linux.command.LinuxCommand;
 
 public class UnmapRBDCommand extends LinuxCommand {
-    private String _template;
+    private String cmdTemplate;
 
     public UnmapRBDCommand() {
         setRunAsRoot(true);
@@ -29,7 +29,7 @@ public class UnmapRBDCommand extends LinuxCommand {
         sb.append("  keyfile=\"/etc/ceph/$pool.$vol.$snap.keyfile\";");
         sb.append("  key=$(grep -o \"$keyfile\" \"$RBDMAP_FILE\");");
         sb.append("  if [ -z \"$key\" ]; then");
-        sb.append("  	echo \"Remove keyfile $keyfile\" >> \"$log\";");
+        sb.append("    echo \"Remove keyfile $keyfile\" >> \"$log\";");
         sb.append("    rm -f \"$keyfile\";");
         sb.append("  fi;");
         sb.append("fi;");
@@ -72,13 +72,15 @@ public class UnmapRBDCommand extends LinuxCommand {
         sb.append("echo \"$id\" 1>/sys/bus/rbd/remove 2>>\"$log\" || exit -1;");
         sb.append("echo \"Device unmapped\" >> \"$log\";");
 
-        this._template = sb.toString();
+        this.cmdTemplate = sb.toString();
     }
 
     public void setVolume(String pool, String volume, String snapshot) {
-        if (snapshot == null || snapshot.isEmpty())
-            snapshot = "-";
-        String cmd = String.format(_template, pool, volume, snapshot);
+        String snap = snapshot;
+        if (snap == null || snap.isEmpty()) {
+            snap = "-";
+        }
+        String cmd = String.format(cmdTemplate, pool, volume, snap);
         setCommand(cmd);
     }
 }

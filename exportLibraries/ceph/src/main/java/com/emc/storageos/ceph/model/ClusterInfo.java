@@ -2,31 +2,31 @@ package com.emc.storageos.ceph.model;
 
 public class ClusterInfo {
 
-    private String _fsid;
-    private long _kb;
-    private long _kbAvail;
+    private String fsid;
+    private long kb;
+    private long kbAvail;
 
     public String getFsid() {
-        return _fsid;
+        return fsid;
     }
 
     public void setFsid(final String fsid) {
-        _fsid = fsid;
+        this.fsid = fsid;
     }
 
     public long getKb() {
-        return _kb;
+        return kb;
     }
 
     public void setKb(long kb) {
-        _kb = kb;
+        this.kb = kb;
     }
 
     public long getKbAvail() {
-        return _kbAvail;
+        return kbAvail;
     }
 
     public void setKbAvail(long kbAvail) {
-        _kbAvail = kbAvail;
+        this.kbAvail = kbAvail;
     }
 }

@@ -2,22 +2,22 @@ package com.emc.storageos.ceph.model;
 
 public class PoolInfo {
 
-    private long _id;
-    private String _name;
+    private long id;
+    private String name;
 
     public long getId() {
-        return _id;
+        return id;
     }
 
     public void setId(long id) {
-        _id = id;
+        this.id = id;
     }
 
     public String getName() {
-        return _name;
+        return name;
     }
 
     public void setName(final String name) {
-        _name = name;
+        this.name = name;
     }
 }
