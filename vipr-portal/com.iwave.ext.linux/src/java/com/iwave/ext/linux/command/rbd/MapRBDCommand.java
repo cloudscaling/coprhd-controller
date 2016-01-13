@@ -114,8 +114,8 @@ public class MapRBDCommand extends LinuxResultsCommand<String> {
     public void setVolume(String pool, String volume, String snapshot) {
     	if (snapshot == null || snapshot.isEmpty())
     		snapshot = "-";
-    	String cmd = String.format(_template, _monitors, _user, _key, pool, volume, snapshot);
-    	setCommand(cmd);
+        String cmd = String.format(_template, _monitors, _user, _key, pool, volume, snapshot);
+        setCommand(cmd);
     }
 
     @Override
