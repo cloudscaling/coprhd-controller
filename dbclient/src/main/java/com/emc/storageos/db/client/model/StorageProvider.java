@@ -103,6 +103,11 @@ public class StorageProvider extends DataObject {
     private String elementManagerURL;
 
     /**
+     * Keyring key. A token to access to storage provider.
+     */
+    private String keyringKey;
+    
+    /**
      * Secondary set of credentials. This is used for example in the
      * case of ScaleIO, where there is a password to SSH into the
      * MDM box (primary creds) and the secondary creds will be the
@@ -119,6 +124,17 @@ public class StorageProvider extends DataObject {
     public void setElementManagerURL(String elementManagerURL) {
         this.elementManagerURL = elementManagerURL;
         setChanged("elementManagerURL");
+    }
+
+    @Encrypt
+    @Name("keyringKey")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
+        setChanged("keyringKey");
     }
 
     @Name("secondaryUsername")
@@ -150,7 +166,8 @@ public class StorageProvider extends DataObject {
         cinder,
         ibmxiv,
         scaleioapi,
-        xtremio;
+        xtremio,
+        ceph;
 
         /**
          * Gets the supported system types for the given interface type.
@@ -174,6 +191,8 @@ public class StorageProvider extends DataObject {
                 systemTypes.add(Type.scaleio.name());
             } else if (xtremio.equals(interfaceType)) {
                 systemTypes.add(Type.xtremio.name());
+            } else if (ceph.equals(interfaceType)) {
+                systemTypes.add(Type.ceph.name());
             }
             return systemTypes;
         }
@@ -500,6 +519,7 @@ public class StorageProvider extends DataObject {
             storage.setSmisPassword(getPassword());
             storage.setSmisUseSSL(getUseSSL());
             storage.setActiveProviderURI(getId());
+            storage.setKeyringKey(getKeyringKey());
         }
         if (storage.getProviders() == null) {
             storage.setProviders(new StringSet());

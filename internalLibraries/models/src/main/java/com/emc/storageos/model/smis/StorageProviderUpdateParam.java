@@ -22,6 +22,7 @@ public class StorageProviderUpdateParam {
     private String secondaryUsername;
     private String secondaryPassword;
     private String elementManagerURL;
+    private String keyringKey;
 
     public StorageProviderUpdateParam() {
     }
@@ -175,5 +176,19 @@ public class StorageProviderUpdateParam {
 
     public void setElementManagerURL(String elementManagerURL) {
         this.elementManagerURL = elementManagerURL;
+    }
+
+    /**
+     * Keyring key - token to access to storage provider.
+     * 
+     * @valid none
+     */
+    @XmlElement(required = false, name = "keyring_key")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
     }
 }

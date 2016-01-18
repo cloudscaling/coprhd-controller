@@ -204,6 +204,16 @@ public class LinuxHostDiscoveryAdapter extends AbstractHostDiscoveryAdapter {
             LOG.error("Failed to list iSCSI Ports, skipping");
         }
 
+        String cephPseudoPort = String.format("ceph-%s", host.getId());
+        Initiator initiator;
+        if (findInitiatorByPort(oldInitiators, cephPseudoPort) == null) {
+            initiator = getOrCreateInitiator(oldInitiators, cephPseudoPort);
+            addedInitiators.add(initiator);
+        } else {
+            initiator = getOrCreateInitiator(oldInitiators, cephPseudoPort);
+        }
+        discoverCephInitiator(host, initiator, cephPseudoPort);
+
         // update export groups with new initiators if host is in use.
         if (!addedInitiators.isEmpty()) {
             Collection<URI> addedInitiatorIds = Lists.newArrayList(Collections2.transform(addedInitiators,
@@ -226,6 +236,14 @@ public class LinuxHostDiscoveryAdapter extends AbstractHostDiscoveryAdapter {
         initiator.setInitiatorNode("");
         initiator.setInitiatorPort(iqn);
         initiator.setProtocol(Protocol.iSCSI.name());
+        setHostInterfaceRegistrationStatus(initiator, host);
+        save(initiator);
+    }
+
+    private void discoverCephInitiator(Host host, Initiator initiator, String port) {
+        setInitiator(initiator, host);
+        initiator.setProtocol(Protocol.RBD.name());
+        initiator.setInitiatorPort(port);
         setHostInterfaceRegistrationStatus(initiator, host);
         save(initiator);
     }

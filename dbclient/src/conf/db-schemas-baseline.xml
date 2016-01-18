@@ -167,6 +167,11 @@ Please DO NOT modify the content.
             <field name="version" type="java.lang.String">
                 <annotations/>
             </field>
+            <field name="keyringKey" type="java.lang.String">
+                <annotations>
+                    <annotation name="Encrypt" type="com.emc.storageos.db.client.model.Encrypt"/>
+                </annotations>
+            </field>                        
         </fields>
     </data_object_schema>
     <data_object_schema name="BlockSnapshot" type="com.emc.storageos.db.client.model.BlockSnapshot">
@@ -2084,6 +2089,11 @@ Please DO NOT modify the content.
             <field name="vplexAssemblyIdToClusterId" type="com.emc.storageos.db.client.model.StringMap">
                 <annotations/>
             </field>
+            <field name="keyringKey" type="java.lang.String">
+                <annotations>
+                    <annotation name="Encrypt" type="com.emc.storageos.db.client.model.Encrypt"/>
+                </annotations>
+            </field>            
         </fields>
     </data_object_schema>
     <data_object_schema name="OwnershipInfo" type="com.emc.storageos.db.client.model.OwnershipInfo">
@@ -3240,6 +3250,11 @@ Please DO NOT modify the content.
             </field>
             <field name="volume" type="java.net.URI">
                 <annotations/>
+            </field>
+            <field name="keyringKey" type="java.lang.String">
+                <annotations>
+                    <annotation name="Encrypt" type="com.emc.storageos.db.client.model.Encrypt"/>
+                </annotations>
             </field>
         </fields>
     </data_object_schema>

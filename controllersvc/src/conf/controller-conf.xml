@@ -142,6 +142,13 @@
         <property name="networkDeviceController" ref="networkDeviceController"/>
     </bean>
 
+	<bean id="cephMaskingOrchestrator" class="com.emc.storageos.volumecontroller.impl.block.CephMaskingOrchestrator">
+        <property name="blockScheduler" ref="blockscheduler"/>
+        <property name="dbClient" ref="dbclient"/>
+        <property name="workflowService" ref="workflowService"/>
+        <property name="networkDeviceController" ref="networkDeviceController"/>
+	</bean>
+
     <bean id="blockDeviceController" class="com.emc.storageos.volumecontroller.impl.block.BlockDeviceController">
         <property name="devices">
             <map>
@@ -153,6 +160,7 @@
                 <entry key="scaleio" value-ref="scaleioStorageDevice"/>
                 <entry key="vnxe" value-ref="vnxeDevice"/>
                 <entry key="xtremio" value-ref="xtremioStorageDevice"/>
+                <entry key="ceph" value-ref="cephStorageDevice"/>
             </map>
         </property>
         <property name="dbClient" ref="dbclient"/>
@@ -371,6 +379,27 @@
         <property name="dbClient" ref="dbclient"/>
         <property name="nameGenerator" ref="defaultNameGenerator"/>
         <property name="xtremioRestClientFactory" ref="xtremioRestClientFactory"/>
+    </bean>
+
+    <bean id="cephStorageDevice" class="com.emc.storageos.volumecontroller.impl.ceph.CephStorageDevice">
+        <property name="dbClient" ref="dbclient"/>
+        <property name="cephClientFactory" ref="cephClientFactory"/>
+        <property name="snapshotOperations" ref="cephSnapshotOperations"/>
+        <property name="cloneOperations" ref="cephCloneOperations"/>
+    </bean>
+
+    <bean id="cephSnapshotOperations" class="com.emc.storageos.volumecontroller.impl.ceph.CephSnapshotOperations">
+        <property name="dbClient" ref="dbclient"/>
+        <property name="cephClientFactory" ref="cephClientFactory"/>
+    </bean>
+
+    <bean id="cephCloneOperations" class="com.emc.storageos.volumecontroller.impl.ceph.CephCloneOperations">
+        <property name="dbClient" ref="dbclient"/>
+        <property name="cephClientFactory" ref="cephClientFactory"/>
+    </bean>
+
+    <bean id="cephClientFactory" class="com.emc.storageos.ceph.CephClientFactory"
+        init-method="init" >
     </bean>
 
     <bean id="vmaxFindProviderFactory" class="com.emc.storageos.volumecontroller.impl.providerfinders.FindProviderFactory">
@@ -822,6 +851,7 @@
                 <entry key="vnxe" value-ref="vnxeDevice"/>
                 <entry key="xtremio" value-ref="xtremioStorageDevice"/>
                 <entry key="ibmxiv" value-ref="xivSmisDevice"/>
+                <entry key="ceph" value-ref="cephStorageDevice"/>
             </map>
         </property>
     </bean>
@@ -854,6 +884,7 @@
                 <entry key="rp" value-ref="rpProtection"/>
                 <entry key="scaleio" value-ref="scaleioMaskingOrchestrator"/>
                 <entry key="xtremio" value-ref="xtremioMaskingOrchestrator"/>
+                <entry key="ceph" value-ref="cephMaskingOrchestrator"/>
             </map>
         </property>
     </bean>

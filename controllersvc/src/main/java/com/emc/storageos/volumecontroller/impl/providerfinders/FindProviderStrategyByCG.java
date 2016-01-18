@@ -129,6 +129,7 @@ public class FindProviderStrategyByCG implements FindProviderStrategy {
             system.setSmisProviderIP(provider.getIPAddress());
             system.setSmisUserName(provider.getUserName());
             system.setSmisUseSSL(provider.getUseSSL());
+            system.setKeyringKey(provider.getKeyringKey());
             dbClient.persistObject(system);
             log.info("Active provider for system {} has changed to {}.",
                     system.getId(), system.getActiveProviderURI());

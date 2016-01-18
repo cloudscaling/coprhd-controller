@@ -106,6 +106,10 @@ public class DataCollectionJobUtil {
                 StorageProvider.InterfaceType.xtremio.name().equalsIgnoreCase(
                         ((StorageProvider) taskObject).getInterfaceType())) {
             populateXtremIOAccessProfile(profile, (StorageProvider) taskObject);
+        } else if (clazz == StorageProvider.class &&
+                StorageProvider.InterfaceType.ceph.name().equalsIgnoreCase(
+                        ((StorageProvider) taskObject).getInterfaceType())) {
+            populateCephAccessProfile(profile, (StorageProvider) taskObject);
         } else if (clazz == StorageSystem.class) {
             populateAccessProfile(profile, (StorageSystem) taskObject, nameSpace);
         } else if (clazz == ProtectionSystem.class) {
@@ -349,6 +353,21 @@ public class DataCollectionJobUtil {
     }
 
     /**
+     * inject details needed for Scanning
+     * 
+     * @param accessProfile
+     * @param providerInfo
+     */
+    private void populateCephAccessProfile(AccessProfile accessProfile, StorageProvider providerInfo) {
+        accessProfile.setSystemId(providerInfo.getId());
+        accessProfile.setSystemClazz(providerInfo.getClass());
+        accessProfile.setIpAddress(providerInfo.getIPAddress());
+        accessProfile.setUserName(providerInfo.getUserName());
+        accessProfile.setKeyringKey(providerInfo.getKeyringKey());
+        accessProfile.setSystemType("ceph");
+    }
+    
+    /**
      * inject Details needed for Discovery
      * 
      * @param accessProfile
@@ -539,6 +558,14 @@ public class DataCollectionJobUtil {
             }
         } else if (storageDevice.getSystemType().equals(Type.hds.toString())) {
             populateHDSAccessProfile(accessProfile, storageDevice, nameSpace);
+        }  else if (storageDevice.getSystemType().equals(
+                Type.ceph.toString())) {
+            accessProfile.setSystemType(storageDevice.getSystemType());
+            accessProfile.setIpAddress(storageDevice.getSmisProviderIP());
+            accessProfile.setUserName(storageDevice.getSmisUserName());
+            accessProfile.setserialID(storageDevice.getSerialNumber());
+            accessProfile.setKeyringKey(storageDevice.getKeyringKey());
+            accessProfile.setLastSampleTime(0L);
         } else {
             throw new RuntimeException("populateAccessProfile: Device type unknown : "
                     + storageDevice.getSystemType());
@@ -844,6 +871,7 @@ public class DataCollectionJobUtil {
         system.setSmisProviderIP(provider.getIPAddress());
         system.setSmisUserName(provider.getUserName());
         system.setSmisUseSSL(provider.getUseSSL());
+        system.setKeyringKey(provider.getKeyringKey());
         updateStorageSystemsInProvider(provider, providersToUpdate, system);
         _logger.debug("Exiting {}", Thread.currentThread().getStackTrace()[1].getMethodName());
     }
@@ -982,6 +1010,7 @@ public class DataCollectionJobUtil {
                     storageSystemInDb.setSmisUserName(provider.getUserName());
                     storageSystemInDb.setSmisPassword(provider.getPassword());
                     storageSystemInDb.setSmisUseSSL(provider.getUseSSL());
+                    storageSystemInDb.setKeyringKey(provider.getKeyringKey());
                 }
             }
         }
@@ -1020,6 +1049,7 @@ public class DataCollectionJobUtil {
             storageSystemInDb.setSmisPortNumber(0);
             storageSystemInDb.setSmisProviderIP("");
             storageSystemInDb.setSmisUserName("");
+            storageSystemInDb.setKeyringKey("");
         }
     }
 

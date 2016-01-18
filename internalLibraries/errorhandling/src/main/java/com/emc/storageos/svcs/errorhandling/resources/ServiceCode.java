@@ -584,6 +584,11 @@ public enum ServiceCode {
     ECS_BUCKET_DELETE_ERROR(65011),
     ECS_BUCKET_GET_OWNER_ERROR(65012),
 
+    // Ceph errors (66000 - 66999)
+    CEPH_CONNECTION_ERROR(66000),
+    CEPH_OPERATION_EXCEPTION(66001),
+    CEPH_INVALID_CREDENTIALS_ERROR(66002),
+
     // ****************************
     // Old style of Service codes
     // ****************************

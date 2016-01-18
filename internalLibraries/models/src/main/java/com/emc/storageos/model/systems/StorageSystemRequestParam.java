@@ -24,6 +24,7 @@ public class StorageSystemRequestParam {
     private String smisUserName;
     private String smisPassword;
     private Boolean smisUseSSL;
+    private String keyringKey;
 
     public StorageSystemRequestParam() {
     }
@@ -199,6 +200,22 @@ public class StorageSystemRequestParam {
         this.smisPassword = smisPassword;
     }
 
+    /**
+     * Keyring key to connect to SMIS Provider
+     * This field is applicable for storage systems of type 'ceph'.
+     * It is ignored for other storage system types and can be null.
+     * 
+     * @valid none
+     */
+    @XmlElement(name = "keyring_key")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
+    }
+    
     /**
      * Determines the protocol used for connection purposes.
      * If HTTPS, then set true, else false.

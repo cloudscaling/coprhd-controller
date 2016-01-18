@@ -114,6 +114,7 @@ public class StorageSystems extends ViprResourceController {
         renderArgs.put("vnxfileStorageSystemType", StorageSystemTypes.VNX_FILE);
         renderArgs.put("scaleIOStorageSystemType", StorageSystemTypes.SCALEIO);
         renderArgs.put("scaleIOApiStorageSystemType", StorageSystemTypes.SCALEIOAPI);
+        renderArgs.put("cephStorageSystemType", StorageSystemTypes.CEPH);
     }
 
     public static void list() {
@@ -179,8 +180,7 @@ public class StorageSystems extends ViprResourceController {
                 flash.put("warning", MessagesUtils.get(NOT_REGISTERED, storageArray.name));
             }
             render(storageArray);
-        }
-        else {
+        } else {
             flash.error(MessagesUtils.get(UNKNOWN, id));
             list();
         }
@@ -591,8 +591,7 @@ public class StorageSystems extends ViprResourceController {
             if ((resourceLimit != null) && (resourceLimit > -1)) {
                 storagePoolParam.setMaxResources(this.resourceLimit);
                 storagePoolParam.setIsUnlimitedResourcesSet(false);
-            }
-            else {
+            } else {
                 storagePoolParam.setMaxResources(null);
                 storagePoolParam.setIsUnlimitedResourcesSet(true);
             }
@@ -658,8 +657,7 @@ public class StorageSystems extends ViprResourceController {
                 if (port != null && !EndpointUtility.isValidEndpoint(port, Endpoint.EndpointType.WWN)) {
                     Validation.addError(fieldName + ".port", "storageArrayPort.port.invalidWWN");
                 }
-            }
-            else {
+            } else {
                 boolean valid = EndpointUtility.isValidEndpoint(port, Endpoint.EndpointType.IQN);
                 if (!valid) {
                     Validation.addError(fieldName + ".port", "storageArrayPort.port.invalidIQN");
@@ -706,6 +704,8 @@ public class StorageSystems extends ViprResourceController {
         public String secondaryPasswordConfirm = "";
 
         public String elementManagerURL;
+
+        public String keyringKey;
 
         public boolean useSSL;
 
@@ -760,8 +760,7 @@ public class StorageSystems extends ViprResourceController {
                 this.useSSL = storageArray.getSmisUseSSL();
                 this.portNumber = storageArray.getSmisPortNumber();
                 this.ipAddress = storageArray.getSmisProviderIP();
-            }
-            else {
+            } else {
                 this.portNumber = storageArray.getPortNumber();
                 this.ipAddress = storageArray.getIpAddress();
 
@@ -786,8 +785,7 @@ public class StorageSystems extends ViprResourceController {
                 storageArray.setMaxResources(resourceLimit);
                 storageArray.setIsUnlimitedResourcesSet(false);
                 // allow changing back to unlimited
-            }
-            else {
+            } else {
                 storageArray.setIsUnlimitedResourcesSet(true);
                 storageArray.setMaxResources(null);
             }
@@ -809,6 +807,11 @@ public class StorageSystems extends ViprResourceController {
 
             if (isScaleIOApi()) {
                 storageArray.setPassword(secondaryPassword);
+            }
+
+            if (isCeph()) {
+                storageArray.setKeyringKey(StringUtils.trimToNull(keyringKey));
+                storageArray.setSmisUserName(StringUtils.trimToNull(smisProviderUserName));
             }
 
             return StorageSystemUtils.update(id, storageArray);
@@ -851,6 +854,7 @@ public class StorageSystems extends ViprResourceController {
             storageProviderForm.secondaryUsername = this.secondaryUsername;
             storageProviderForm.secondaryPassword = this.secondaryPassword;
             storageProviderForm.elementManagerURL = this.elementManagerURL;
+            storageProviderForm.keyringKey = this.keyringKey;
 
             return storageProviderForm.create();
         }
@@ -859,12 +863,10 @@ public class StorageSystems extends ViprResourceController {
             if (isNew()) {
                 if (isStorageProviderManaged()) {
                     return createStorageProvider();
-                }
-                else {
+                } else {
                     return create();
                 }
-            }
-            else {
+            } else {
                 return update();
             }
         }
@@ -878,12 +880,14 @@ public class StorageSystems extends ViprResourceController {
             }
 
             if (isNew()) {
-                if (isScaleIOApi()) {
+                if (isCeph()) {
+                    Validation.required(fieldName + ".userName", this.userName);
+                    Validation.required(fieldName + ".keyringKey", this.keyringKey);
+                } else if (isScaleIOApi()) {
                     Validation.required(fieldName + ".secondaryUsername", this.secondaryUsername);
                     Validation.required(fieldName + ".secondaryPassword", this.secondaryPassword);
                     Validation.required(fieldName + ".secondaryPasswordConfirm", this.secondaryPasswordConfirm);
-                }
-                else {
+                } else {
                     Validation.required(fieldName + ".userName", this.userName);
                     Validation.required(fieldName + ".userPassword", this.userPassword);
                     Validation.required(fieldName + ".confirmPassword", this.confirmPassword);
@@ -899,8 +903,7 @@ public class StorageSystems extends ViprResourceController {
                                 MessagesUtils.get("storageArray.secondaryPassword.confirmPassword.not.match"));
                     }
                 }
-            }
-            else {
+            } else {
                 if (!unlimitResource) {
                     Validation.required(fieldName + ".resourceLimit", this.resourceLimit);
                     Validation.min(fieldName + ".resourceLimit", this.resourceLimit, 0);
@@ -941,6 +944,10 @@ public class StorageSystems extends ViprResourceController {
 
         private boolean isScaleIOApi() {
             return StorageSystemTypes.isScaleIOApi(type);
+        }
+
+        private boolean isCeph() {
+            return StorageSystemTypes.isCeph(type);
         }
     }
 

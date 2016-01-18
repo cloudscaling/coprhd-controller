@@ -25,19 +25,9 @@ public class StorageProviderCreateParam {
     private String secondaryUsername;
     private String secondaryPassword;
     private String elementManagerURL;
+    private String keyringKey;
 
     public StorageProviderCreateParam() {
-    }
-
-    public StorageProviderCreateParam(String name, String ipAddress,
-            Integer portNumber, String userName, String password, Boolean useSSL, String interfaceType) {
-        this.name = name;
-        this.ipAddress = ipAddress;
-        this.portNumber = portNumber;
-        this.userName = userName;
-        this.password = password;
-        this.useSSL = useSSL;
-        this.interfaceType = interfaceType;
     }
 
     /**
@@ -100,7 +90,7 @@ public class StorageProviderCreateParam {
      * 
      * @valid example: none
      */
-    @XmlElement(required = true)
+    @XmlElement(required = false, name = "password")
     public String getPassword() {
         return password;
     }
@@ -194,5 +184,19 @@ public class StorageProviderCreateParam {
 
     public void setElementManagerURL(String elementManagerURL) {
         this.elementManagerURL = elementManagerURL;
+    }
+
+    /**
+     * Keyring key - token to access to storage provider.
+     * 
+     * @valid none
+     */
+    @XmlElement(required = false, name = "keyring_key")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
     }
 }

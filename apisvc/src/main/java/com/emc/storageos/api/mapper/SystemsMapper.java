@@ -118,6 +118,7 @@ public class SystemsMapper {
         to.setRegistrationStatus(from.getRegistrationStatus());
         to.setSecondaryUsername(from.getSecondaryUsername());
         to.setElementManagerURL(from.getElementManagerURL());
+        to.setKeyringKey(from.getKeyringKey());
         return to;
     }
 

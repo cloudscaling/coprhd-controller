@@ -22,6 +22,7 @@ public class StorageSystemUpdateRequestParam {
     private Integer smisPortNumber;
     private String smisUserName;
     private String smisPassword;
+    private String keyringKey;
     private Boolean smisUseSSL;
     private Integer maxResources;
     private Boolean isUnlimitedResourcesSet;
@@ -163,6 +164,22 @@ public class StorageSystemUpdateRequestParam {
 
     public void setSmisPassword(String smisPassword) {
         this.smisPassword = smisPassword;
+    }
+
+    /**
+     * Keyring key to connect to SMIS Provider
+     * This field is applicable for storage systems of type 'ceph'.
+     * It is ignored for other storage system types and can be null.
+     * 
+     * @valid none
+     */
+    @XmlElement(name = "keyring_key")
+    public String getKeyringKey() {
+        return keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+        this.keyringKey = keyringKey;
     }
 
     /**

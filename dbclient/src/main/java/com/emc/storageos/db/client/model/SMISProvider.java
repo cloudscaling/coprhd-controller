@@ -38,6 +38,8 @@ public class SMISProvider extends DataObject {
     private String _userName;
     // SMI-S password.
     private String _password;
+    // SMI-S keyring key
+    private String _keyringKey;
     // SMI-S flag indicates whether or not to use SSL protocol.
     private Boolean _useSSL;
     // IPAddress alternateID is already used inStorageDevice,
@@ -134,6 +136,17 @@ public class SMISProvider extends DataObject {
         setChanged("password");
     }
 
+    @Encrypt
+    @Name("keyringKey")
+    public String getKeyringKey() {
+        return _keyringKey;
+    }
+
+    public void setKeyringKey(String keyringKey) {
+    	_keyringKey = keyringKey;
+        setChanged("keyringKey");
+    }
+    
     @Name("useSSL")
     public Boolean getUseSSL() {
         return (_useSSL != null) && _useSSL;
@@ -318,6 +331,7 @@ public class SMISProvider extends DataObject {
             storage.setSmisPassword(getPassword());
             storage.setSmisUseSSL(getUseSSL());
             storage.setActiveProviderURI(getId());
+            storage.setKeyringKey(getKeyringKey());
         }
         if (storage.getProviders() == null) {
             storage.setProviders(new StringSet());
