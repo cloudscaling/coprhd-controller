@@ -2298,7 +2298,6 @@ class Bourne:
 
         o = self.api('POST', url, parms)
         self.assert_is_dict(o)
-        print o
         s = self.api_sync_2(o['resource']['id'], o['op_id'], self.fileshare_show_task)
 
         return s
@@ -4689,7 +4688,7 @@ class Bourne:
         return self.api('GET', uri_storageprovider_task.format(uri, task))
 
 
-    def storageprovider_create(self, name, ipaddress, port, username, password, usessl, interface, secondary_username, secondary_password, element_manager_url, sio_cli):
+    def storageprovider_create(self, name, ipaddress, port, username, password, usessl, interface, secondary_username, secondary_password, element_manager_url, sio_cli, keyring_key):
         req = dict()
         req['name'] = name
         req['ip_address'] = ipaddress
@@ -4702,8 +4701,10 @@ class Bourne:
         req['secondary_username'] = secondary_username
         req['secondary_password'] = secondary_password
         req['element_manager_url'] = element_manager_url
+        req['keyring_key'] = keyring_key
 
         o = self.api('POST', URI_STORAGEPROVIDERS, req)
+        print(o)
         s = self.api_sync_2(o['resource']['id'], o['op_id'], self.storageprovider_show_task)
         return  s
 

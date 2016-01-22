@@ -229,7 +229,7 @@ def volume_delete(args):
         (o, s, m) = bourne.volume_delete(uris[0], args.wait, args.vipronly, args.force)
     else:
         print "No active volumes to delete"
-        o = "There were no active volumes to delete"
+        (o, s, m) = "There were no active volumes to delete", "0", ""
     total = time.time() - start
     if (args.wait):
        print "Volume delete took", "{0:.2f}".format(total), "seconds to complete"

@@ -16,7 +16,7 @@ from bourne import Bourne
 
 def storageprovider_create(args):
     bourne.connect(args.ip)
-    s = bourne.storageprovider_create(args.label, args.ipaddress, args.port, args.username, args.password, args.usessl, args.interface, args.secondary_username, args.secondary_password, args.element_manager_url, args.sio_cli)
+    s = bourne.storageprovider_create(args.label, args.ipaddress, args.port, args.username, args.password, args.usessl, args.interface, args.secondary_username, args.secondary_password, args.element_manager_url, args.sio_cli, args.keyring_key)
     if (s['state'] == 'ready'):
         print 'StorageProvider created with id ' + s['resource']['id']
     else:
@@ -95,17 +95,18 @@ parser.add_argument('--ip', metavar = 'ipaddr',	help = 'IP address of Bourne', d
 
 # storage provider create label
 create = argparse.ArgumentParser(parents = [parser], conflict_handler='resolve')
-create.add_argument('label',				 help = 'Label for the Storage provider')
-create.add_argument('ipaddress',			 help = 'IP Address')
-create.add_argument('port',					 help = 'Port')
-create.add_argument('username',			     help = 'Username')
-create.add_argument('password',				 help = 'Password')
-create.add_argument('interface',			 help = 'Interface(API)')
-create.add_argument('--usessl',              help = 'UseSSL true or false')
-create.add_argument('--sio_cli',             help = 'Specify a custom way to invoke the SIO CLI')
-create.add_argument('--element_manager_url', help = 'Specify an element manager URL')
-create.add_argument('--secondary_username',  help = 'Specify a secondary username to be used')
-create.add_argument('--secondary_password',  help = 'Specify a secondary password to be used')
+create.add_argument('label',                 help = 'Label for the Storage provider')
+create.add_argument('ipaddress',             help = 'IP Address')
+create.add_argument('port',                  help = 'Port')
+create.add_argument('username',              help = 'Username')
+create.add_argument('password',              help = 'Password')
+create.add_argument('interface',             help = 'Interface(API)')
+create.add_argument('--usessl',              help = 'UseSSL true or false', default=None)
+create.add_argument('--sio_cli',             help = 'Specify a custom way to invoke the SIO CLI', default=None)
+create.add_argument('--element_manager_url', help = 'Specify an element manager URL', default=None)
+create.add_argument('--secondary_username',  help = 'Specify a secondary username to be used', default=None)
+create.add_argument('--secondary_password',  help = 'Specify a secondary password to be used', default=None)
+create.add_argument('--keyring_key',         help = 'Specify a keyring key to be used', default=None)
 
 # storage provider delete name
 delete = argparse.ArgumentParser(parents = [parser], conflict_handler='resolve')
