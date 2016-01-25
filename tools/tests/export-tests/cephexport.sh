@@ -4,7 +4,7 @@
 # All Rights Reserved
 #
 #
-# Export Test Suite for ScaleIO
+# Export Test Suite for Cephs
 #
 #
 # set -x
@@ -22,100 +22,159 @@ BOURNE_SAVED_TOKEN_FILE="/tmp/token_saved.txt"
 
 PATH=$(dirname $0):$(dirname $0)/..:/bin:/usr/bin:
 
-#BOURNE_IPS=${1:-$BOURNE_IPADDR}
-#IFS=',' read -ra BOURNE_IP_ARRAY <<< "$BOURNE_IPS"
+BOURNE_IPS=${1:-$BOURNE_IPADDR}
+IFS=',' read -ra BOURNE_IP_ARRAY <<< "$BOURNE_IPS"
+IP_INDEX=0
+
 BOURNE_IP=localhost
-#IP_INDEX=0
 
 ethdev=`/sbin/ifconfig | grep Ethernet | head -1 | awk '{print $1}'`
 macaddr=`/sbin/ifconfig $ethdev | /usr/bin/awk '/HWaddr/ { print $5 }'`
 if [ "$macaddr" = "" ] ; then
     macaddr=`/sbin/ifconfig $ethdev | /usr/bin/awk '/ether/ { print $2 }'`
 fi
-seed=`date "+%H%M%S%N"`
-ipaddr=`/sbin/ifconfig $ethdev | /usr/bin/perl -nle 'print $1 if(m#inet addr:(.*?)\s+#);' | tr '.' '-'`
+#seed=`date "+%H%M%S%N"`
 export BOURNE_API_SYNC_TIMEOUT=700
 
 if [ "$BOURNE_IP" = "localhost" ]; then
+    ipaddr=`/sbin/ifconfig $ethdev | /usr/bin/perl -nle 'print $1 if(m#inet addr:(.*?)\s+#);' | tr '.' '-'`
     SHORTENED_HOST="ip-$ipaddr"
 fi
 SHORTENED_HOST=${SHORTENED_HOST:=`echo $BOURNE_IP | awk -F. '{ print $1 }'`}
+
 : ${TENANT=root}
-: ${PROJECT=sanity}
+: ${PROJECT=sanity_ceph}
+
 RBD_CLI=/usr/bin/rbd
 
-# ============================================================
-# - Export testing parameters                                -
-# ============================================================
 BASENUM=${RANDOM}
-VOLNAME=EXPTest${BASENUM}
-BLOCKSNAPSHOT_NAME=EXPTestSnap${BASENUM}
-EXPORT_GROUP_NAME=export${BASENUM}
-PROJECT=project
+VOLNAME=EXPCephTest${BASENUM}
+BLOCKSNAPSHOT_NAME=EXPCephSnap${BASENUM}
+EXPORT_GROUP_NAME=EXPCephGroup${BASENUM}
+
+VERIFY_COUNT=0
+VERIFY_FAIL_COUNT=0
+
 
 # ============================================================
-# Ceph CLI access is through SSH. In order to make this
-# automated, we would need to have the DevKit VM's SSH keys
-# copied over to the known/authorized host list on the
-# ScaleIO MDM host. This method runs these steps (if they
-# haven't already been done.
-# ============================================================
+# to help to configure ssh access by keys
 validate_auto_ssh_access() {
-    know_host=`grep "$CEPH_IP" ~/.ssh/known_hosts | wc -l`
+    host=$1
+    know_host=`grep $host ~/.ssh/known_hosts | wc -l`
     if [ $know_host -eq 0 ]; then
-        if [ -e /root/.ssh/id_dsa ]; then
+        if [ -e ~/.ssh/id_dsa ]; then
             echo SSH KEY has already been generated
         else
-            echo We will have to generated the SSH KEY and push it to $CEPH_IP
+            echo We will have to generated the SSH KEY and push it to $host
             echo This should only be done once
             echo Accept all the defaults from ssh-keygen
             ssh-keygen
         fi
-        echo Going to copy the SSH KEY to $CEPH_IP. Please type in the password when requested
-        ssh-copy-id -i /root/.ssh/id_rsa.pub $CEPH_IP
+        echo Going to copy the SSH KEY to $host. Please type in the password when requested
+        ssh-copy-id -i ~/.ssh/id_rsa.pub $host
     fi
-    echo Checking if SSH KEY already on $CEPH_IP. If you get prompted for a password
+    echo Checking if SSH KEY already on $host. If you get prompted for a password
     echo after this message, then it means that you will have to manually run the steps
-    echo to copy the SSH KEY to $CEPH_IP. These are the steps:
-    echo 1. ssh-keygen 2. ssh-copy-id -i /root/.ssh/id_rsa.pub $CEPH_IP
-    ssh z uname -a
+    echo to copy the SSH KEY to $host. These are the steps:
+    echo 1. ssh-keygen 2. ssh-copy-id -i /root/.ssh/id_rsa.pub $host
+    ssh $host uname -a
 }
 
-VERIFY_EXPORT_COUNT=0
-VERIFY_EXPORT_FAIL_COUNT=0
-verify_export() {
-    host=$1
-    expected_mapped_volumes=$2
-    VERIFY_EXPORT_COUNT=`expr $VERIFY_EXPORT_COUNT + 1`
-    actual_volumes=`ssh $CEPH_IP "$RBD_CLI showmapped | awk '{/^[0-9]/ print(\\$5)}'"`
-    actual_count=`echo "$actual_volumes" | wc -l`
-    if [ x"$expected_mapped_volumes" = x"gone" ]; then
-        if [ $actual_count -ne "0" ]; then
-            echo === FAILED: There was a failure. Expected no mappings for $host, but there were $actual_count
-            echo === FAILED: The results of the last ScaleIO CLI command: $actual_volumes
-            VERIFY_EXPORT_FAIL_COUNT=`expr $VERIFY_EXPORT_FAIL_COUNT + 1`
-            cleanup
-            finish
-        fi
-        echo PASSED: No more volumes mapped to $host
-    elif [ $expected_mapped_volumes -ne $actual_count ]; then
-            echo === FAILED: Expected $expected_mapped_volumes for $host, but found $actual_count
-            VERIFY_EXPORT_FAIL_COUNT=`expr $VERIFY_EXPORT_FAIL_COUNT + 1`
-            cleanup
-            finish
-    else
-        echo PASSED: $expected_mapped_volumes volumes mapped to $host
-    fi
+
+# ============================================================
+deletevols() {
+   for id in `volume list $PROJECT | awk '/YES/ {print $7}'`
+   do
+      echo "Deleting volume: ${id}"
+      runcmd volume delete --wait ${id} > /dev/null
+   done
+}
+
+cleanup() {
+   for id in `export_group list $PROJECT | awk '/YES/ {print $5}'`
+   do
+      echo "Deleted export group: $id"
+      runcmd export_group delete $id
+   done
+   volume delete $PROJECT --project --wait   
+}
+
+fail_test() {
+    msg=$1
+    echo === FAILED: $msg
+    VERIFY_FAIL_COUNT=`expr $VERIFY_FAIL_COUNT + 1`
+    cleanup
+    finish
+}
+
+finish() {
+   echo There were $VERIFY_COUNT verifications
+   echo There were $VERIFY_FAIL_COUNT verification failures
+   exit $VERIFY_FAIL_COUNT
 }
 
 runcmd() {
     echo === $*
     $*
     if [ $? -ne 0 ]; then
-       VERIFY_EXPORT_FAIL_COUNT=`expr $VERIFY_EXPORT_FAIL_COUNT + 1`
+       VERIFY_FAIL_COUNT=`expr $VERIFY_FAIL_COUNT + 1`
        echo === FAILED: $*
        cleanup
        finish
+    fi
+}
+
+get_native_volume_id() {
+    local id=$1
+    local native_id=`volume show $id | awk '/native_id/ {print($2)}' | sed "s/[\"',]//g"`
+    echo $native_id
+}
+
+verify_volume() {
+    volume=$1
+    host=$CEPH_IP
+    expected_size=$2
+    if [ -z "$expected_size" ]; then
+        expected_size=$CEPH_VOLUME_SIZE_GB
+    fi
+    echo "verify volume: $volume with expected size $expected_size (ceph host $host)"
+    VERIFY_COUNT=`expr $VERIFY_COUNT + 1`
+    
+    validate_auto_ssh_access $host
+        
+    actual_volume=`ssh $host "$RBD_CLI ls -l --pool $CEPH_POOL | grep "$volume""`
+    if [ -z "$actual_volume" ]; then
+        fail_test "There is no volume with name $volume on the Ceph backend"
+    fi
+
+    size_mb=`echo $actual_volume | awk '{print($2)}'`
+    size_gb=`expr $(echo $size_mb | sed 's/M//g') / 1024`
+    if [ "$size_gb"GB != "$expected_size" ]; then
+        fail_test "Volume expected size is $expected_size, but actual size is $size"
+    fi    
+    
+    echo PASSED: There is $volume of size $expected_size on ceph storage $host
+}
+
+verify_export() {
+    host=$1
+    expected_mapped_volumes=$2
+    echo "verify exports: expected exported volumes $expected_mapped_volumes (ceph host $host)"
+
+    validate_auto_ssh_access $host
+    VERIFY_COUNT=`expr $VERIFY_COUNT + 1`
+
+    actual_volumes=`ssh $CEPH_IP "$RBD_CLI showmapped | awk '/^[0-9]/ {print(\\$5)}'"`
+    actual_count=`echo "$actual_volumes" | wc -w`
+    if [ x"$expected_mapped_volumes" = x"gone" ]; then
+        if [ $actual_count -ne "0" ]; then
+            fail_test "Expected no mappings for $host, but actual mappings count is $actual_count, mapped volumes are $actual_volumes."
+        fi
+        echo PASSED: No more volumes mapped to $host
+    elif [ $expected_mapped_volumes -ne $actual_count ]; then
+            fail_test "Expected $expected_mapped_volumes for $host, but found $actual_count"
+    else
+        echo PASSED: $expected_mapped_volumes volumes mapped to $host
     fi
 }
 
@@ -177,7 +236,7 @@ setup() {
     set_hosts;
 
     # create virtual array
-    VARRAY=`neighborhood list | grep -o "$CEPH_VARRAY"`
+    VARRAY=`neighborhood list | grep -o "$CEPH_VARRAY" | head -n 1`
     if [ -z "$VARRAY" ]; then
         echo Create VArray $CEPH_VARRAY
         runcmd neighborhood create $CEPH_VARRAY
@@ -198,15 +257,18 @@ setup() {
     runcmd transportzone assign $NETWORK $VARRAY
     runcmd neighborhood allow $VARRAY $TENANT
    
+   
+    STORAGE_DEVICE=`storagedevice list | awk '/ceph/ {print($2)}'`
+   
     # add storage device ports to network
-    STORAGE_PORT=`./storageport list $(./storagedevice list | awk '/ceph/ {print($2)}') | grep -o 'CEPH.*PORT+-'`
+    STORAGE_PORT=`storageport list $STORAGE_DEVICE | grep -o 'CEPH.*PORT+-'`
     echo Add storage port $STORAGE_PORT to network $NETWORK
     runcmd transportzone add $NETWORK "$STORAGE_PORT"
 
     # add host ports to network
-    HOSTS=`./hosts list "$TENANT" | awk '/urn/ {print($4)}'`
+    HOSTS=`hosts list "$TENANT" | awk '/urn/ {print($4)}'`
     for i in $HOSTS; do
-        HOST_PORT=`./initiator list $i | awk '/ceph/ {print($1)}'`
+        HOST_PORT=`initiator list $i | awk '/ceph/ {print($1)}'`
         echo Add host initiators $HOST_PORT to network $NETWORK
         runcmd transportzone add $NETWORK "$HOST_PORT"
     done
@@ -214,65 +276,123 @@ setup() {
     # create virtual pool
     VPOOL=`cos list block | grep -o "$CEPH_VPOOL"`
     if [ -z "$VPOOL" ]; then
-        echo Create virtual pool $CEPH_VPOOL for varray $VARRAY
-        runcmd cos create block $CEPH_VPOOL true --description='Ceph-VPool' --protocols=RBD --provisionType='Thin' --max_snapshots=8 --neighborhoods="$VARRAY" --expandable
         VPOOL=$CEPH_VPOOL
+        echo Create virtual pool $VPOOL for varray $VARRAY
+        runcmd cos create block $VPOOL false --description='Ceph-VPool' --protocols=RBD --provisionType='Thin' --max_snapshots=8 --neighborhoods="$VARRAY" --expandable true --systemtype ceph
     else
         echo Use existing virtual pool $VPOOL
     fi
-    storagedevice list | grep COMPLETE | awk '{ print($2) }' | xargs -i cos update block $VPOOL --storage {}
-    storagedevice list | grep COMPLETE | awk '{ print($2) }' | xargs -i storagepool update {} --nhadd $VARRAY --pool $VPOOL --type block --volume_type THIN
-    storagedevice list | grep COMPLETE | awk '{ print($2) }' | xargs -i storageport update {} Ceph --tzone $VARRAY/$NETWORK
     
-
-    runcmd cos allow ${VPOOL} block $TENANT
-    runcmd volume create ${VOLNAME} ${PROJECT} ${VARRAY} ${VPOOL} 1GB --count 4
+    # assign pool
+    for i in `storagepool list $STORAGE_DEVICE  | grep -o "'name': 'CEPH.*POOL.*[0-9]'" | awk '{print($2)}' | sed "s/['""]//g"`; do
+        POOL_NAME=`storagepool show $STORAGE_DEVICE/$i | awk '/pool_name/ {print(\$2)}' | sed 's/[,"'']//g'`
+        if [ "$POOL_NAME" = "$CEPH_POOL" ]; then
+            POOL_NATIVE_NAME=$i
+            break
+        fi
+    done 
+    if [ -z "$POOL_NATIVE_NAME" ]; then
+        echo === FAILED: there is no storage pool $CEPH_POOL in storage system $STORAGE_DEVICE
+        cleanup
+        finish
+    fi
+    runcmd cos update_pools block $VPOOL "$STORAGE_DEVICE/$POOL_NATIVE_NAME"
+    
+    runcmd cos allow $VPOOL block $TENANT
 }
 
-deletevols() {
-   for id in `volume list project | grep YES | awk '{print $7}'`
-   do
-      echo "Deleting volume: ${id}"
-      runcmd volume delete ${id} > /dev/null
-   done
-}
 
-cleanup() {
-   for id in `export_group list project | grep YES | awk '{print $5}'`
-   do
-      echo "Deleted export group: ${id}"
-      runcmd export_group delete ${id} > /dev/null
-   done
-   volume delete $PROJECT --project --wait
-   echo There were $VERIFY_EXPORT_COUNT export verifications
-   echo There were $VERIFY_EXPORT_FAIL_COUNT export verification failures
-}
+# ============================================================
+# Tests:
 
-finish() {
-   if [ $VERIFY_EXPORT_FAIL_COUNT -ne 0 ]; then 
-       exit $VERIFY_EXPORT_FAIL_COUNT
-   fi
-   exit 0
-}
-
-# Export Test 0
-#
-# Most basic test. Create an export with hosts and volumes
-#
 test_0() {
-    echo "Test 0 Begins"
-    expname=${EXPORT_GROUP_NAME}_t0
-    runcmd export_group create $PROJECT ${expname}1 $CEPH_VARRAY --type Host --volspec ${PROJECT}/${VOLNAME}-1,${PROJECT}/${VOLNAME}-2 --hosts "$CEPH_HOSTS"
-    for i in `echo $CEPH_HOSTS | sed 's/,/ /g'`; do    
-        verify_export $i 2
-        runcmd export_group delete $PROJECT/${expname}1
-        verify_export $i gone
+    echo "Test 0 Begins: create/list/delete volumes"
+    runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 4
+
+    volumes=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}'`
+    if [ -z "volumes" ]; then
+        fail_test "There are no expected volumes ${VOLNAME}-1, ${VOLNAME}-2"
+    fi
+
+    for id in $volumes; do
+        native_id=`volume show $id | awk '/native_id/ {print($2)}' | sed "s/[\"',]//g"`
+        verify_volume $native_id
+        runcmd volume delete --wait $id
     done
 }
 
+test_1() {
+    echo "Test 1 Begins: Expand volume"
+    runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 1
+
+    id=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}' `
+    native_id=$(get_native_volume_id $id)
+    verify_volume $native_id
+
+    runcmd volume expand $id $CEPH_EXPAND_VOLUME_SIZE_GB
+    verify_volume $native_id $CEPH_EXPAND_VOLUME_SIZE_GB
+
+    runcmd volume delete --wait $id
+}
+
+test_2() {
+    echo "Test 2 Begins: Full copy volume"
+    runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 1
+
+    id=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}' `
+    native_id=$(get_native_volume_id $id)
+    verify_volume $native_id
+
+    fullcopy_name="$VOLNAME"-FullCopy
+    runcmd volume full_copy $fullcopy_name $id
+    
+    fc_id=`volume list $PROJECT | grep $fullcopy_name | awk '{print($7)}' `
+    native_id=$(get_native_volume_id $fc_id)
+    verify_volume $native_id
+
+    runcmd volume delete --wait $id
+    runcmd volume delete --wait $fc_id
+}
+
+test_3() {
+    echo "Test 3s Begins: Export/unexport volume"
+    runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 2
+
+    volumes=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}'`
+    if [ -z "volumes" ]; then
+        fail_test "There are no expected volumes ${VOLNAME}-1, ${VOLNAME}-2"
+    fi
+    
+    for id in $volumes; do
+        native_id=$(get_native_volume_id $id)
+        verify_volume $native_id
+    done
+
+    expname=$EXPORT_GROUP_NAME
+    runcmd export_group create $PROJECT $expname $CEPH_VARRAY --type Host --volspec ${PROJECT}/${VOLNAME}-1,${PROJECT}/${VOLNAME}-2 --hosts "$CEPH_HOSTS"
+    for host in `echo $CEPH_HOSTS | sed 's/,/ /g'`; do    
+        verify_export $host 2
+        runcmd export_group delete $PROJECT/$expname
+        verify_export $host gone
+    done
+
+    for id in $volumes; do
+        runcmd volume delete --wait $id
+    done
+}
+
+test_all() {
+    test_0
+    test_1
+    test_2
+    test_3
+}
+
+# ============================================================
 usage() {
     echo "Usage: `basename $0` <sanity_config_file> <cmd: setup|regression|deletevol|delete|run> [test_number_to_run: 0|1|...]"
 }
+s
 
 # ============================================================
 # -    M A I N
@@ -299,8 +419,6 @@ else
     finish
 fi
 
-#TODO: un-comment after adding checks on remote hosts
-#validate_auto_ssh_access
 login
 
 if [ "$1" = "regression" ]
