@@ -49,7 +49,6 @@ RBD_CLI=/usr/bin/rbd
 
 BASENUM=${RANDOM}
 VOLNAME=EXPCephTest${BASENUM}
-BLOCKSNAPSHOT_NAME=EXPCephSnap${BASENUM}
 EXPORT_GROUP_NAME=EXPCephGroup${BASENUM}
 
 VERIFY_COUNT=0
@@ -80,13 +79,45 @@ validate_auto_ssh_access() {
     ssh $host uname -a
 }
 
+validate_pool_exists() {
+    local host=$1 
+    local expected_pool=$2
+    local pool=`ssh $host "ceph osd lspools | grep $expected_pool"`
+    if [ -z $pool ]; then
+        fail_test "Test expect that there is the pool $pool on ceph backend. You have to create it manually before test run."
+    fi
+}
+
+validate_rbd_driver () {
+    local host=$1 
+    local drv=`ssh $host "/usr/sbin/lsmod | grep rbd"`
+    if [ -z "$drv" ]; then
+        ssh $host "/usr/sbin/modprobe rbd"
+        drv=`ssh $host "lsmod | grep rbd"`
+        if [ -z "$drv" ]; then
+            fail_test "Test expect that RBD driver is loaded on the host $host. Test cant load it because of permissions. You have to do it manuall via 'sudo modprobe rbd' on the host."
+        fi
+    fi
+}
 
 # ============================================================
-deletevols() {
+cleanupsnaps() {
+   vol=$1
+   echo "Deleting all snapshosts for volume: $vol"
+   for id in `blocksnapshot list $vol | awk '/YES/ {print $6}'`
+   do
+      echo "Deleting snapshot: $id"
+      runcmd blocksnapshot delete $id
+   done
+}
+
+cleanupvols() {
+   echo "Deleting all volumes in project $PROJECT"
    for id in `volume list $PROJECT | awk '/YES/ {print $7}'`
    do
-      echo "Deleting volume: ${id}"
-      runcmd volume delete --wait ${id} > /dev/null
+      cleanupsnaps $id
+      echo "Deleting volume: $id"
+      runcmd volume delete --wait $id
    done
 }
 
@@ -96,7 +127,8 @@ cleanup() {
       echo "Deleted export group: $id"
       runcmd export_group delete $id
    done
-   volume delete $PROJECT --project --wait   
+
+   cleanupvols
 }
 
 fail_test() {
@@ -126,34 +158,55 @@ runcmd() {
 
 get_native_volume_id() {
     local id=$1
-    local native_id=`volume show $id | awk '/native_id/ {print($2)}' | sed "s/[\"',]//g"`
+    local native_id=`volume show $id | awk '/"native_id"/ {print($2)}' | sed "s/[\"',]//g"`
     echo $native_id
 }
 
-verify_volume() {
-    volume=$1
-    host=$CEPH_IP
-    expected_size=$2
+get_native_snapshot_id() {
+    local id=$1
+    local native_id=`blocksnapshot show $id | awk '/"native_id"/ {print($2)}' | sed "s/[\"',]//g"`
+    echo $native_id
+}
+
+verify_rbd_block_device() {
+    local device=$1
+    local host=$CEPH_IP
+
+    VERIFY_COUNT=`expr $VERIFY_COUNT + 1`
+ 
+    local expected_size=$2
     if [ -z "$expected_size" ]; then
         expected_size=$CEPH_VOLUME_SIZE_GB
     fi
-    echo "verify volume: $volume with expected size $expected_size (ceph host $host)"
-    VERIFY_COUNT=`expr $VERIFY_COUNT + 1`
-    
-    validate_auto_ssh_access $host
         
-    actual_volume=`ssh $host "$RBD_CLI ls -l --pool $CEPH_POOL | grep "$volume""`
-    if [ -z "$actual_volume" ]; then
-        fail_test "There is no volume with name $volume on the Ceph backend"
-    fi
-
-    size_mb=`echo $actual_volume | awk '{print($2)}'`
-    size_gb=`expr $(echo $size_mb | sed 's/M//g') / 1024`
-    if [ "$size_gb"GB != "$expected_size" ]; then
-        fail_test "Volume expected size is $expected_size, but actual size is $size"
-    fi    
+    local actual_block_device=`ssh $host "$RBD_CLI ls -l --pool $CEPH_POOL | grep "$device""`
     
-    echo PASSED: There is $volume of size $expected_size on ceph storage $host
+    if [ "$expected_size" = "gone" ]; then
+        echo "verify $device is deleted (ceph host $host)"
+        if [ -n "$actual_block_device" ]; then
+            fail_test "Device $device is not deleted on the Ceph backend"
+        fi
+        echo PASSED: The device $device is deleted on ceph storage $host
+    else
+        echo "verify $device with expected size $expected_size (ceph host $host)"
+        if [ -z "$actual_block_device" ]; then
+            fail_test "There is no device with name $device on the Ceph backend"
+        fi
+        local size_mb=`echo $actual_block_device | awk '{print($2)}'`
+        local size_gb=`expr $(echo $size_mb | sed 's/M//g') / 1024`
+        if [ "$size_gb"GB != "$expected_size" ]; then
+            fail_test "Volume expected size is $expected_size, but actual size is $size"
+        fi
+        echo PASSED: There is $device of size $expected_size on ceph storage $host
+    fi    
+}
+
+verify_volume() {
+    verify_rbd_block_device $*
+}
+
+verify_snapshot() {
+    verify_rbd_block_device $*
 }
 
 verify_export() {
@@ -161,10 +214,9 @@ verify_export() {
     expected_mapped_volumes=$2
     echo "verify exports: expected exported volumes $expected_mapped_volumes (ceph host $host)"
 
-    validate_auto_ssh_access $host
     VERIFY_COUNT=`expr $VERIFY_COUNT + 1`
 
-    actual_volumes=`ssh $CEPH_IP "$RBD_CLI showmapped | awk '/^[0-9]/ {print(\\$5)}'"`
+    actual_volumes=`ssh $host "$RBD_CLI showmapped | awk '/^[0-9]/ {print(\\$5)}'"`
     actual_count=`echo "$actual_volumes" | wc -w`
     if [ x"$expected_mapped_volumes" = x"gone" ]; then
         if [ $actual_count -ne "0" ]; then
@@ -306,7 +358,7 @@ setup() {
 # Tests:
 
 test_0() {
-    echo "Test 0 Begins: create/list/delete volumes"
+    echo "${FUNCNAME} Begins: create/list/delete volumes"
     runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 4
 
     volumes=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}'`
@@ -318,11 +370,12 @@ test_0() {
         native_id=`volume show $id | awk '/native_id/ {print($2)}' | sed "s/[\"',]//g"`
         verify_volume $native_id
         runcmd volume delete --wait $id
+        verify_volume $native_id "gone"        
     done
 }
 
 test_1() {
-    echo "Test 1 Begins: Expand volume"
+    echo "${FUNCNAME} Begins: Expand volume"
     runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 1
 
     id=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}' `
@@ -333,10 +386,11 @@ test_1() {
     verify_volume $native_id $CEPH_EXPAND_VOLUME_SIZE_GB
 
     runcmd volume delete --wait $id
+    verify_volume $id "gone"        
 }
 
 test_2() {
-    echo "Test 2 Begins: Full copy volume"
+    echo "${FUNCNAME} Begins: Full copy volume"
     runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 1
 
     id=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}' `
@@ -352,10 +406,12 @@ test_2() {
 
     runcmd volume delete --wait $id
     runcmd volume delete --wait $fc_id
+    verify_volume $fc_id "gone"        
+    verify_volume $id "gone"        
 }
 
 test_3() {
-    echo "Test 3s Begins: Export/unexport volume"
+    echo "${FUNCNAME} Begins: Export/unexport volume"
     runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 2
 
     volumes=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}'`
@@ -378,21 +434,86 @@ test_3() {
 
     for id in $volumes; do
         runcmd volume delete --wait $id
+        verify_volume $id "gone"        
     done
 }
 
+test_4() {
+    echo "${FUNCNAME} Begins: create/list/delete snapshot"
+    runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 1
+
+    id=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}' `
+    native_id=$(get_native_volume_id $id)
+    verify_volume $native_id
+
+    snap_name="$VOLNAME"-Snap
+    runcmd blocksnapshot create $id $snap_name
+    
+    snap_id=`blocksnapshot list $id | grep $snap_name | awk '{print($6)}'`
+    native_id=$(get_native_snapshot_id $snap_id)
+    verify_snapshot $native_id
+
+    runcmd blocksnapshot delete $snap_id
+    verify_snapshot $snap_id "gone"        
+
+    runcmd volume delete --wait $id
+    verify_volume $id "gone"        
+}
+
+test_5() {
+    echo "${FUNCNAME} Begins: export/unexport snapshot"
+    runcmd volume create $VOLNAME $PROJECT $CEPH_VARRAY $CEPH_VPOOL $CEPH_VOLUME_SIZE_GB --count 1
+
+    id=`volume list $PROJECT | grep $VOLNAME | awk '{print($7)}' `
+    native_id=$(get_native_volume_id $id)
+    verify_volume $native_id
+
+    snap_name="$VOLNAME"-Snap
+    runcmd blocksnapshot create $id $snap_name
+    
+    snap_id=`blocksnapshot list $id | grep $snap_name | awk '{print($6)}'`
+    native_id=$(get_native_snapshot_id $snap_id)
+    verify_snapshot $native_id
+
+    expname=$EXPORT_GROUP_NAME
+    runcmd export_group create $PROJECT $expname $CEPH_VARRAY --type Host --volspec ${PROJECT}/${VOLNAME}/${snap_name} --hosts "$CEPH_HOSTS"
+    for host in `echo $CEPH_HOSTS | sed 's/,/ /g'`; do    
+        verify_export $host 1
+        runcmd export_group delete $PROJECT/$expname
+        verify_export $host gone
+    done
+    
+    runcmd blocksnapshot delete $snap_id
+    verify_snapshot $snap_id "gone"        
+
+    runcmd volume delete --wait $id
+    verify_volume $id "gone"        
+}
+
 test_all() {
-    test_0
-    test_1
-    test_2
-    test_3
+    for i in {0..5}; do
+        test_$i
+    done
+}
+
+run_test() {
+    #check prerequisites
+    validate_auto_ssh_access $CEPH_IP
+    validate_pool_exists $CEPH_IP $CEPH_POOL
+    for host in `echo $CEPH_HOSTS | sed 's/,/ /g'`; do    
+        validate_auto_ssh_access $host
+        validate_rbd_driver $host
+    done
+    
+    # run test
+    test_$1
 }
 
 # ============================================================
 usage() {
-    echo "Usage: `basename $0` <sanity_config_file> <cmd: setup|regression|deletevol|delete|run> [test_number_to_run: 0|1|...]"
+    echo "Usage: `basename $0` <sanity_config_file> <cmd: setup|regression|cleanupvols|delete|run> [test_number_to_run: 0|1|...]"
 }
-s
+
 
 # ============================================================
 # -    M A I N
@@ -423,12 +544,12 @@ login
 
 if [ "$1" = "regression" ]
 then
-   test_0;
+   run_test "0";
 fi
 
-if [ "$1" = "deletevol" ]
+if [ "$1" = "cleanupvols" ]
 then
-  deletevols
+  cleanupvols
   finish
 fi
 
@@ -451,7 +572,7 @@ then
     if [ "$2" != "" ]
     then
         echo Request to run test_$2
-        test_$2
+        run_test $2
         cleanup
         finish
     fi
